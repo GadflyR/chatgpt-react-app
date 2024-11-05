@@ -1,29 +1,42 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { TextField, Button, Typography, Container, Box, CircularProgress } from '@mui/material';
+import {
+  TextField,
+  IconButton,
+  Typography,
+  Container,
+  Box,
+  CircularProgress,
+} from '@mui/material';
+import SendIcon from '@mui/icons-material/Send';
 
 function ChatPage() {
   const [prompt, setPrompt] = useState('');
-  const [messages, setMessages] = useState([]);
+  const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!prompt.trim()) return;
+
     setLoading(true);
     setError('');
-  
-    const userMessage = { role: 'user', content: prompt };
-    const updatedMessages = [...messages, userMessage];
-  
+    setResponse('');
+
     try {
-      const res = await axios.post('http://localhost:5000/api/chat', { messages: updatedMessages });
-      const assistantMessage = res.data.choices[0].message;
-      setMessages([...updatedMessages, assistantMessage]);
+      const res = await axios.post('http://localhost:5000/api/chat', { prompt });
+      const assistantMessage = res.data.choices[0].message.content;
+
+      setResponse(assistantMessage);
       setPrompt('');
     } catch (err) {
       console.error('Error:', err.response ? err.response.data : err.message);
-      setError('Error communicating with the server.');
+      setError(
+        err.response && err.response.data && err.response.data.error
+          ? err.response.data.error
+          : 'Error communicating with the server.'
+      );
     } finally {
       setLoading(false);
     }
@@ -36,39 +49,38 @@ function ChatPage() {
           Chat with ChatGPT
         </Typography>
 
-        <Box component="form" onSubmit={handleSubmit} mb={2}>
+        {/* Input Field */}
+        <Box component="form" onSubmit={handleSubmit} mb={2} display="flex">
           <TextField
             fullWidth
-            label="Type your message"
-            multiline
-            rows={4}
+            placeholder="Type your message..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             variant="outlined"
-            margin="normal"
             required
+            disabled={loading}
           />
-          <Button type="submit" variant="contained" color="primary" disabled={loading}>
-            {loading ? <CircularProgress size={24} /> : 'Send'}
-          </Button>
+          <IconButton type="submit" color="primary" disabled={loading}>
+            {loading ? <CircularProgress size={24} /> : <SendIcon />}
+          </IconButton>
         </Box>
 
-        {error && (
-          <Typography color="error" variant="body1">
-            {error}
-          </Typography>
+        {/* Display AI Response */}
+        {response && (
+          <Box mt={2} p={2} bgcolor="#f5f5f5" borderRadius={4}>
+            <Typography variant="h6">Response:</Typography>
+            <Typography variant="body1">{response}</Typography>
+          </Box>
         )}
 
-        <Box mt={4}>
-          {messages.map((msg, index) => (
-            <Box key={index} mb={2}>
-              <Typography variant="subtitle1" color={msg.role === 'user' ? 'primary' : 'secondary'}>
-                <strong>{msg.role === 'user' ? 'You' : 'ChatGPT'}:</strong>
-              </Typography>
-              <Typography variant="body1">{msg.content}</Typography>
-            </Box>
-          ))}
-        </Box>
+        {/* Display Error Message */}
+        {error && (
+          <Box mt={2} p={2} bgcolor="#ffebee" borderRadius={4}>
+            <Typography color="error" variant="body1">
+              {error}
+            </Typography>
+          </Box>
+        )}
       </Box>
     </Container>
   );
