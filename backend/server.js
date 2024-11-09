@@ -1,7 +1,12 @@
+// server.js
+
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 require('dotenv').config(); // Load environment variables
+
+// Import the Azure Speech SDK
+const sdk = require('microsoft-cognitiveservices-speech-sdk');
 
 const app = express();
 app.use(express.json());
@@ -20,7 +25,7 @@ app.post('/api/chat', async (req, res) => {
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: 'gpt-4o-mini', // Use a valid model name
+        model: 'gpt-4o-mini', // Ensure this is a valid model name
         messages: [
           { role: 'user', content: prompt }, // Ensure 'content' is included
         ],
@@ -47,44 +52,74 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// Azure TTS Endpoint using SDK
 app.post('/api/tts', async (req, res) => {
   const { text } = req.body;
 
   if (!text || typeof text !== 'string') {
+    console.error('Invalid text provided.');
     return res.status(400).json({ error: 'Invalid text provided.' });
   }
 
   const subscriptionKey = process.env.AZURE_TTS_KEY;
-  const region = process.env.AZURE_REGION; // Ensure this is 'eastus'
+  const region = process.env.AZURE_REGION;
 
-  const endpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
-
-  const ssml = `<speak version='1.0' xml:lang='en-US'>
-    <voice xml:lang='en-US' xml:gender='Female' name='en-US-JennyNeural'>
-      ${text}
-    </voice>
-  </speak>`;
-
-  const headers = {
-    'Ocp-Apim-Subscription-Key': subscriptionKey,
-    'Content-Type': 'application/ssml+xml',
-    'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
-  };
+  if (!subscriptionKey || !region) {
+    console.error('Azure TTS key or region is not set.');
+    return res.status(500).json({ error: 'Azure TTS configuration error.' });
+  }
 
   try {
-    const response = await axios.post(endpoint, ssml, {
-      headers,
-      responseType: 'arraybuffer',
-    });
+    const speechConfig = sdk.SpeechConfig.fromSubscription(subscriptionKey, region);
+    speechConfig.speechSynthesisVoiceName = 'en-US-JennyNeural'; // You can make this dynamic based on user selection
 
-    res.set({
-      'Content-Type': 'audio/mpeg',
-      'Content-Length': response.data.length,
-    });
+    // Create a PushStream
+    const pushStream = sdk.AudioOutputStream.createPushStream();
 
-    res.send(Buffer.from(response.data, 'binary'));
+    // Create an AudioConfig from the PushStream
+    const audioConfig = sdk.AudioConfig.fromStreamOutput(pushStream);
+
+    // Create the SpeechSynthesizer
+    const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
+
+    // Array to hold audio data chunks
+    let audioChunks = [];
+
+    // Handle audio data received
+    pushStream.onData = (data) => {
+      audioChunks.push(Buffer.from(data));
+    };
+
+    // Handle the end of audio stream
+    pushStream.onClose = () => {
+      const audioBuffer = Buffer.concat(audioChunks);
+      res.set({
+        'Content-Type': 'audio/mpeg',
+        'Content-Length': audioBuffer.length,
+      });
+      res.send(audioBuffer);
+    };
+
+    // Start synthesizing
+    synthesizer.speakTextAsync(
+      text,
+      (result) => {
+        if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
+          console.log('Speech synthesis completed.');
+        } else {
+          console.error('Speech synthesis failed:', result.errorDetails);
+          res.status(500).json({ error: 'Speech synthesis failed.' });
+        }
+        synthesizer.close();
+      },
+      (error) => {
+        console.error('Speech synthesis error:', error);
+        res.status(500).json({ error: 'Speech synthesis error.' });
+        synthesizer.close();
+      }
+    );
   } catch (error) {
-    console.error('Azure TTS API error:', error.response ? error.response.data : error.message);
+    console.error('Azure TTS API error:', error);
     res.status(500).json({ error: 'Error generating speech audio.' });
   }
 });

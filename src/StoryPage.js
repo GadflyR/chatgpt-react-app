@@ -166,13 +166,17 @@ function StoryPage() {
 
     try {
       const audioPromises = stories.map((storyItem) =>
-        getSpeechAudio(`Day ${storyItem.day}: ${storyItem.content}`)
+        axios.post(
+          'http://localhost:5000/api/tts',
+          { text: `Day ${storyItem.day}: ${storyItem.content}` },
+          { responseType: 'blob' }
+        )
       );
 
-      const audioBlobs = await Promise.all(audioPromises);
+      const audioResponses = await Promise.all(audioPromises);
 
       // Create URLs for the audio blobs
-      const urls = audioBlobs.map((blob) => URL.createObjectURL(blob));
+      const urls = audioResponses.map((response) => URL.createObjectURL(response.data));
       setAudioUrls(urls);
       setIsPlaying(true);
     } catch (err) {
@@ -182,41 +186,6 @@ function StoryPage() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    let audioElement = null;
-
-    const playAudio = () => {
-      if (currentAudioIndex < audioUrls.length) {
-        audioElement = new Audio(audioUrls[currentAudioIndex]);
-        audioElement.play();
-
-        audioElement.onended = () => {
-          setCurrentAudioIndex((prevIndex) => prevIndex + 1);
-        };
-
-        audioElement.onerror = (e) => {
-          console.error('Error playing audio:', e);
-          setError('Error playing audio.');
-          setIsPlaying(false);
-        };
-      } else {
-        setIsPlaying(false);
-        setCurrentAudioIndex(0);
-      }
-    };
-
-    if (isPlaying && audioUrls.length > 0) {
-      playAudio();
-    }
-
-    return () => {
-      if (audioElement) {
-        audioElement.pause();
-        audioElement.src = '';
-      }
-    };
-  }, [isPlaying, currentAudioIndex, audioUrls]);
 
   const handleStopStories = () => {
     setIsPlaying(false);
