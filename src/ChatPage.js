@@ -15,6 +15,7 @@ function ChatPage() {
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://story.ibot1.net';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,7 +26,7 @@ function ChatPage() {
     setResponse('');
 
     try {
-      const res = await axios.post('http://localhost:5000/api/chat', { prompt });
+      const res = await axios.post(`${backendUrl}/api/chat`, { prompt });
       const assistantMessage = res.data.choices[0].message.content;
 
       setResponse(assistantMessage);

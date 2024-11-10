@@ -32,6 +32,7 @@ function StoryPage() {
   const [isPlaying, setIsPlaying] = useState(false); // Indicates if playback is in progress
   const [currentAudioIndex, setCurrentAudioIndex] = useState(0); // Tracks the current audio being played
   const audioRef = useRef(null); // Reference to the current Audio object
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://story.ibot1.net';
 
   // Function to generate stories
   const handleGenerateStory = async (e) => {
@@ -98,7 +99,7 @@ function StoryPage() {
           // Constructing prompt for subsequent days
           if (previousStory.length > 1500) {
             const summaryPrompt = `Summarize the following story in 200 words:\n\n${previousStory}`;
-            const summaryRes = await axios.post('http://localhost:5000/api/chat', {
+            const summaryRes = await axios.post(`${backendUrl}/api/chat`, {
               prompt: summaryPrompt,
             });
             previousStory = summaryRes.data.choices[0].message.content.trim();
@@ -108,7 +109,7 @@ function StoryPage() {
         }
 
         // Sending prompt to OpenAI API
-        const res = await axios.post('http://localhost:5000/api/chat', { prompt });
+        const res = await axios.post(`${backendUrl}/api/chat`, { prompt });
         const assistantMessage = res.data.choices[0].message.content;
 
         // Storing the generated story
@@ -149,7 +150,7 @@ function StoryPage() {
       // Generating audio for each story
       const audioPromises = stories.map((storyItem) =>
         axios.post(
-          'http://localhost:5000/api/tts',
+          `${backendUrl}/api/tts`,
           { text: `Day ${storyItem.day}: ${storyItem.content}` },
           { responseType: 'blob' }
         )
