@@ -52,7 +52,6 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Azure TTS Endpoint using SDK
 app.post('/api/tts', async (req, res) => {
   const { text } = req.body;
 
@@ -73,39 +72,27 @@ app.post('/api/tts', async (req, res) => {
     const speechConfig = sdk.SpeechConfig.fromSubscription(subscriptionKey, region);
     speechConfig.speechSynthesisVoiceName = 'en-US-JennyNeural'; // You can make this dynamic based on user selection
 
-    // Create a PushStream
-    const pushStream = sdk.AudioOutputStream.createPushStream();
+    // Create the SpeechSynthesizer without specifying AudioConfig
+    const synthesizer = new sdk.SpeechSynthesizer(speechConfig, null);
 
-    // Create an AudioConfig from the PushStream
-    const audioConfig = sdk.AudioConfig.fromStreamOutput(pushStream);
+    console.log('Starting speech synthesis...');
 
-    // Create the SpeechSynthesizer
-    const synthesizer = new sdk.SpeechSynthesizer(speechConfig, audioConfig);
-
-    // Array to hold audio data chunks
-    let audioChunks = [];
-
-    // Handle audio data received
-    pushStream.onData = (data) => {
-      audioChunks.push(Buffer.from(data));
-    };
-
-    // Handle the end of audio stream
-    pushStream.onClose = () => {
-      const audioBuffer = Buffer.concat(audioChunks);
-      res.set({
-        'Content-Type': 'audio/mpeg',
-        'Content-Length': audioBuffer.length,
-      });
-      res.send(audioBuffer);
-    };
-
-    // Start synthesizing
     synthesizer.speakTextAsync(
       text,
       (result) => {
         if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
-          console.log('Speech synthesis completed.');
+          console.log('Speech synthesis completed successfully.');
+
+          // The audio data is returned as a Uint8Array
+          const audioBuffer = Buffer.from(result.audioData);
+
+          res.set({
+            'Content-Type': 'audio/mpeg',
+            'Content-Length': audioBuffer.length,
+            'Cache-Control': 'no-cache',
+          });
+
+          res.send(audioBuffer);
         } else {
           console.error('Speech synthesis failed:', result.errorDetails);
           res.status(500).json({ error: 'Speech synthesis failed.' });

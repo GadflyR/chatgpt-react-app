@@ -1,6 +1,6 @@
 // src/StoryPage.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import {
   TextField,
@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 
 function StoryPage() {
+  // State variables for story generation
   const [title, setTitle] = useState('');
   const [protagonist, setProtagonist] = useState('');
   const [storyType, setStoryType] = useState('');
@@ -27,14 +28,16 @@ function StoryPage() {
   const [error, setError] = useState('');
 
   // State variables for audio playback
-  const [audioUrls, setAudioUrls] = useState([]);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
+  const [audioUrls, setAudioUrls] = useState([]); // Stores the URLs of generated audio files
+  const [isPlaying, setIsPlaying] = useState(false); // Indicates if playback is in progress
+  const [currentAudioIndex, setCurrentAudioIndex] = useState(0); // Tracks the current audio being played
+  const audioRef = useRef(null); // Reference to the current Audio object
 
+  // Function to generate stories
   const handleGenerateStory = async (e) => {
     e.preventDefault();
 
-    // Validate mandatory inputs
+    // Input validation
     if (!languageDifficulty) {
       setError('Please select a language difficulty level.');
       return;
@@ -50,10 +53,14 @@ function StoryPage() {
       return;
     }
 
+    // Reset state before generating
     setLoading(true);
     setError('');
     setStories([]);
     setCurrentDay(0);
+    setAudioUrls([]);
+    setIsPlaying(false);
+    setCurrentAudioIndex(0);
 
     let previousStory = '';
     const generatedStories = [];
@@ -64,7 +71,7 @@ function StoryPage() {
         let prompt = '';
 
         if (day === 1) {
-          // Day 1: Initial story
+          // Constructing prompt for the first day
           prompt = `Write a ${languageDifficulty.toLowerCase()} language story`;
           if (storyType.trim()) {
             prompt += ` in the ${storyType} genre`;
@@ -88,8 +95,7 @@ function StoryPage() {
           prompt += '.';
           prompt += ' Keep the story concise, around 300 words.';
         } else {
-          // Subsequent days: Continue the story
-          // Summarize previous stories if necessary
+          // Constructing prompt for subsequent days
           if (previousStory.length > 1500) {
             const summaryPrompt = `Summarize the following story in 200 words:\n\n${previousStory}`;
             const summaryRes = await axios.post('http://localhost:5000/api/chat', {
@@ -101,16 +107,14 @@ function StoryPage() {
           prompt = `Continue the following story into Day ${day}:\n\n${previousStory}\n\nEnsure the language difficulty remains ${languageDifficulty.toLowerCase()} and keep the story concise, around 300 words.`;
         }
 
-        // Optional: Log the prompt
-        // console.log(`Prompt for Day ${day}:`, prompt);
-
+        // Sending prompt to OpenAI API
         const res = await axios.post('http://localhost:5000/api/chat', { prompt });
         const assistantMessage = res.data.choices[0].message.content;
 
-        // Save the generated story
+        // Storing the generated story
         generatedStories.push({ day, content: assistantMessage.trim() });
 
-        // Update the previous story
+        // Updating previousStory for the next iteration
         previousStory = assistantMessage.trim();
       }
 
@@ -128,31 +132,7 @@ function StoryPage() {
     }
   };
 
-  const getSpeechAudio = async (text) => {
-    const subscriptionKey = process.env.REACT_APP_AZURE_TTS_KEY;
-    const region = process.env.REACT_APP_AZURE_REGION;
-    const endpoint = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
-
-    const ssml = `<speak version='1.0' xml:lang='en-US'>
-      <voice xml:lang='en-US' xml:gender='Female' name='en-US-JennyNeural'>
-        ${text}
-      </voice>
-    </speak>`;
-
-    const headers = {
-      'Ocp-Apim-Subscription-Key': subscriptionKey,
-      'Content-Type': 'application/ssml+xml',
-      'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
-    };
-
-    const response = await axios.post(endpoint, ssml, {
-      headers,
-      responseType: 'blob',
-    });
-
-    return response.data;
-  };
-
+  // Function to initiate audio playback
   const handlePlayStories = async () => {
     if (stories.length === 0) {
       alert('No stories to play.');
@@ -162,9 +142,11 @@ function StoryPage() {
     setLoading(true);
     setError('');
     setAudioUrls([]);
+    setIsPlaying(false);
     setCurrentAudioIndex(0);
 
     try {
+      // Generating audio for each story
       const audioPromises = stories.map((storyItem) =>
         axios.post(
           'http://localhost:5000/api/tts',
@@ -175,10 +157,10 @@ function StoryPage() {
 
       const audioResponses = await Promise.all(audioPromises);
 
-      // Create URLs for the audio blobs
+      // Creating object URLs for the audio blobs
       const urls = audioResponses.map((response) => URL.createObjectURL(response.data));
       setAudioUrls(urls);
-      setIsPlaying(true);
+      setIsPlaying(true); // Start playback
     } catch (err) {
       console.error('Error:', err.message);
       setError('Error generating speech audio.');
@@ -187,10 +169,61 @@ function StoryPage() {
     }
   };
 
+  // Function to stop audio playback
   const handleStopStories = () => {
-    setIsPlaying(false);
-    setCurrentAudioIndex(0);
+    if (audioRef.current) {
+      audioRef.current.pause(); // Pause the current audio
+      audioRef.current.currentTime = 0; // Reset playback time
+      audioRef.current = null; // Clear the reference
+    }
+    setIsPlaying(false); // Update playback state
+    setCurrentAudioIndex(0); // Reset audio index
   };
+
+  // useEffect to handle sequential audio playback
+  useEffect(() => {
+    // If playback is active and there are audios to play
+    if (isPlaying && currentAudioIndex < audioUrls.length) {
+      const currentUrl = audioUrls[currentAudioIndex];
+      const newAudio = new Audio(currentUrl); // Create a new Audio object
+      audioRef.current = newAudio; // Store the Audio object in ref
+
+      // Attempt to play the audio
+      newAudio.play().catch((error) => {
+        console.error('Error playing audio:', error);
+        setError('Error playing audio.');
+        setIsPlaying(false);
+      });
+
+      // Event listener for when the current audio ends
+      newAudio.onended = () => {
+        setCurrentAudioIndex((prevIndex) => prevIndex + 1); // Move to the next audio
+      };
+
+      // Event listener for audio playback errors
+      newAudio.onerror = (e) => {
+        console.error('Error during audio playback:', e);
+        setError('Error during audio playback.');
+        setIsPlaying(false);
+      };
+
+      // Cleanup function to pause audio if the component unmounts or dependencies change
+      return () => {
+        newAudio.pause();
+      };
+    } else if (isPlaying && currentAudioIndex >= audioUrls.length) {
+      // All audios have been played
+      setIsPlaying(false);
+      setCurrentAudioIndex(0);
+    }
+  }, [isPlaying, currentAudioIndex, audioUrls]);
+
+  // Cleanup object URLs when the component unmounts to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      audioUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [audioUrls]);
 
   return (
     <Container maxWidth="md">
@@ -199,7 +232,7 @@ function StoryPage() {
           Generate a Story Series
         </Typography>
 
-        {/* Input Fields */}
+        {/* Input Fields Form */}
         <Box component="form" onSubmit={handleGenerateStory} mb={2}>
           {/* Title (Optional) */}
           <TextField
@@ -347,7 +380,7 @@ function StoryPage() {
           </Box>
         )}
 
-        {/* Display Stories */}
+        {/* Display Generated Stories */}
         {stories.length > 0 &&
           stories.map((storyItem) => (
             <Box key={storyItem.day} mt={2} p={2} bgcolor="#f5f5f5" borderRadius={4}>
@@ -358,7 +391,7 @@ function StoryPage() {
             </Box>
           ))}
 
-        {/* Display Error Message */}
+        {/* Display Error Messages */}
         {error && (
           <Box mt={2} p={2} bgcolor="#ffebee" borderRadius={4}>
             <Typography color="error" variant="body1">
