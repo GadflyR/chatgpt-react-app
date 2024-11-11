@@ -81,12 +81,13 @@ button:hover {
 }
 
 .NavBar {
-  background-color: rgba(255, 255, 255, 0.8);
+  background-color: rgba(28, 86, 212, 0.8);
+  color: #ffffff;
   backdrop-filter: blur(10px);
   border-radius: 15px;
   margin: 20px;
   padding: 10px 20px;
-  box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.3);
 }
 
 .NavBar .MuiToolbar-root {

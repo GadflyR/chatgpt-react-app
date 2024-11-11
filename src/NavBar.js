@@ -5,12 +5,13 @@ import { AppBar, Toolbar, Typography, Button } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import Logout from './Logout';
+import '../App.css';
 
 function NavBar({ children }) {
   const { currentUser } = useAuth();
 
   return (
-    <AppBar position="static" style={{ backgroundColor: 'rgba(255, 255, 255, 0.6)', backdropFilter: 'blur(10px)' }}>
+    <AppBar position="static" className="NavBar">
       <Toolbar>
         <Typography variant="h6" style={{ flexGrow: 1 }}>
           iBot Story Generator
