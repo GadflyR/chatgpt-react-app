@@ -3,6 +3,7 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config(); // Load environment variables
 
 const sdk = require('microsoft-cognitiveservices-speech-sdk');
@@ -10,6 +11,12 @@ const sdk = require('microsoft-cognitiveservices-speech-sdk');
 const app = express();
 
 const allowedOrigins = ['https://story.ibot1.net', 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net'];
+
+app.use(express.static(path.join(__dirname, '../build')));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../build', 'index.html'));
+});
 
 app.use(cors({
   origin: function (origin, callback) {
