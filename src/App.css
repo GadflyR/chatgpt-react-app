@@ -87,15 +87,11 @@ button:hover {
 }
 
 .NavBar {
-  background-color: rgba(59, 89, 152, 0.9); /* Ensure visibility */
+  background-color: rgba(59, 89, 152, 0.8);
   color: #ffffff;
   backdrop-filter: blur(10px);
   border-radius: 15px;
-  padding: 10px 20px;
   box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.3);
-  width: 100%; /* Ensure navbar does not exceed page width */
-  max-width: 100%; /* Prevent exceeding 100% width */
-  margin: 0 auto; /* Center the navbar */
 }
 
 .NavBar .MuiToolbar-root {

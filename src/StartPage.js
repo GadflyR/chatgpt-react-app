@@ -8,13 +8,16 @@ const BackgroundBox = styled(Box)(({ theme }) => ({
   backgroundImage: `url(${BackgroundImage})`,
   backgroundSize: 'cover',
   backgroundPosition: 'center',
-  minHeight: '100vh',
+  height: '100vh', // Ensures full viewport height
+  width: '100vw', // Ensures full viewport width
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   color: theme.palette.common.white,
   textAlign: 'center',
   padding: theme.spacing(2),
+  position: 'relative', // To work well with fixed navbar
+  top: '64px', // Adjust for navbar height (default AppBar height is 64px)
 }));
 
 const StartPage = () => {
