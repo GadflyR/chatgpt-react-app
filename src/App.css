@@ -2,8 +2,14 @@
 
 body {
   margin: 0;
+  padding: 0; /* Remove all padding */
   font-family: 'Roboto', sans-serif;
-  background-color: #f0f2f5;
+  background: url('path/to/your/background-image.jpg') no-repeat center center fixed; /* Use your background image */
+  background-size: cover; /* Ensure background covers the entire page */
+}
+
+html, body, #root {
+  height: 100%; /* Ensure the entire page takes up full height */
 }
 
 .App {
@@ -30,7 +36,7 @@ body {
 }
 
 .App-header {
-  background: linear-gradient(135deg, #3b5998, #8b9dc3);
+  background: rgba(59, 89, 152, 0.9);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -81,13 +87,15 @@ button:hover {
 }
 
 .NavBar {
-  background-color: rgba(28, 86, 212, 0.8);
+  background-color: rgba(59, 89, 152, 0.9); /* Ensure visibility */
   color: #ffffff;
   backdrop-filter: blur(10px);
   border-radius: 15px;
-  margin: 20px;
   padding: 10px 20px;
   box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.3);
+  width: 100%; /* Ensure navbar does not exceed page width */
+  max-width: 100%; /* Prevent exceeding 100% width */
+  margin: 0 auto; /* Center the navbar */
 }
 
 .NavBar .MuiToolbar-root {
