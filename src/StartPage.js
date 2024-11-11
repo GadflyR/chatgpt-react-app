@@ -28,10 +28,10 @@ const StartPage = () => {
     <BackgroundBox>
       <Container maxWidth="sm">
         <Typography variant="h2" component="h1" gutterBottom>
-          Welcome to ChatGPT App
+          Customize Your Own Series!
         </Typography>
         <Typography variant="h5" component="p" gutterBottom>
-          Your AI-powered chat companion
+          iBot Story Generator
         </Typography>
         <Button
           variant="contained"
