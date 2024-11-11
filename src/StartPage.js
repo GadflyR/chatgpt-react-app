@@ -16,8 +16,8 @@ const BackgroundBox = styled(Box)(({ theme }) => ({
   color: theme.palette.common.white,
   textAlign: 'center',
   padding: theme.spacing(2),
-  position: 'relative', // To work well with fixed navbar
-  top: '64px', // Adjust for navbar height (default AppBar height is 64px)
+  position: 'absolute',
+  top: '0',
 }));
 
 const StartPage = () => {
