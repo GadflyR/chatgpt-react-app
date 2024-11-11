@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { useAuth } from './AuthContext'; // Import to access current user
+import { db } from './firebase'; // Import Firestore instance
+import { collection, addDoc } from "firebase/firestore"; // Firestore functions
 import {
   TextField,
   Button,
@@ -14,6 +17,7 @@ import {
 
 function StoryPage() {
   // State variables for story generation
+  const { currentUser } = useAuth();
   const [title, setTitle] = useState('');
   const [protagonist, setProtagonist] = useState('');
   const [storyType, setStoryType] = useState('');
@@ -122,6 +126,18 @@ function StoryPage() {
       }
 
       setStories(generatedStories);
+
+      if (currentUser) {
+        const userStoryCollection = collection(db, 'users', currentUser.uid, 'generatedStories');
+        for (let storyItem of generatedStories) {
+          await addDoc(userStoryCollection, {
+            day: storyItem.day,
+            content: storyItem.content,
+            timestamp: new Date(), // Add timestamp to track when story was generated
+          });
+        }
+      }
+      
     } catch (err) {
       console.error('Error:', err.response ? err.response.data : err.message);
       setError(
