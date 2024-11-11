@@ -33,6 +33,8 @@ function StoryPage() {
   const [currentAudioIndex, setCurrentAudioIndex] = useState(0); // Tracks the current audio being played
   const audioRef = useRef(null); // Reference to the current Audio object
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
+  
+  const [selectedVoice, setSelectedVoice] = useState('en-US-JennyNeural');
 
   // Function to generate stories
   const handleGenerateStory = async (e) => {
@@ -151,17 +153,16 @@ function StoryPage() {
       const audioPromises = stories.map((storyItem) =>
         axios.post(
           `${backendUrl}/api/tts`,
-          { text: `Day ${storyItem.day}: ${storyItem.content}` },
+          { text: `Day ${storyItem.day}: ${storyItem.content}`, voice: selectedVoice },
           { responseType: 'blob' }
         )
       );
 
       const audioResponses = await Promise.all(audioPromises);
 
-      // Creating object URLs for the audio blobs
       const urls = audioResponses.map((response) => URL.createObjectURL(response.data));
       setAudioUrls(urls);
-      setIsPlaying(true); // Start playback
+      setIsPlaying(true);
     } catch (err) {
       console.error('Error:', err.message);
       setError('Error generating speech audio.');
@@ -338,6 +339,24 @@ function StoryPage() {
             margin="normal"
             required
           />
+
+          <TextField
+            select
+            fullWidth
+            label="Select Voice"
+            value={selectedVoice}
+            onChange={(e) => setSelectedVoice(e.target.value)}
+            variant="outlined"
+            margin="normal"
+            required
+          >
+            <MenuItem value="en-US-JennyNeural">Jenny (US)</MenuItem>
+            <MenuItem value="en-US-GuyNeural">Guy (US)</MenuItem>
+            <MenuItem value="en-GB-LibbyNeural">Libby (UK)</MenuItem>
+            <MenuItem value="en-GB-RyanNeural">Ryan (UK)</MenuItem>
+            <MenuItem value="en-AU-NatashaNeural">Natasha (AU)</MenuItem>
+            <MenuItem value="en-IN-NeerjaNeural">Neerja (IN)</MenuItem>
+          </TextField>
 
           {/* Submit Button */}
           <Box display="flex" alignItems="center" mt={2}>

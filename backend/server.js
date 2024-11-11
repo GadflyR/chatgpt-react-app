@@ -32,11 +32,9 @@ app.use(cors({
 
 app.use(express.json());
 
-// Endpoint to handle chat requests
 app.post('/api/chat', async (req, res) => {
   const { prompt } = req.body;
 
-  // Validate the prompt
   if (!prompt || typeof prompt !== 'string') {
     return res.status(400).json({ error: 'Invalid prompt provided.' });
   }
@@ -45,7 +43,7 @@ app.post('/api/chat', async (req, res) => {
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: 'gpt-4o-mini', // Ensure this is a valid model name
+        model: 'gpt-4o-mini', // This is a valid model name
         messages: [
           { role: 'user', content: prompt }, // Ensure 'content' is included
         ],
@@ -73,7 +71,7 @@ app.post('/api/chat', async (req, res) => {
 });
 
 app.post('/api/tts', async (req, res) => {
-  const { text } = req.body;
+  const { text, voice } = req.body;
 
   if (!text || typeof text !== 'string') {
     console.error('Invalid text provided.');
@@ -90,7 +88,7 @@ app.post('/api/tts', async (req, res) => {
 
   try {
     const speechConfig = sdk.SpeechConfig.fromSubscription(subscriptionKey, region);
-    speechConfig.speechSynthesisVoiceName = 'en-US-JennyNeural'; // You can make this dynamic based on user selection
+    speechConfig.speechSynthesisVoiceName = voice || 'en-US-JennyNeural'; // Use the selected voice or default to 'en-US-JennyNeural'
 
     // Create the SpeechSynthesizer without specifying AudioConfig
     const synthesizer = new sdk.SpeechSynthesizer(speechConfig, null);
