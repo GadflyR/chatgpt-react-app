@@ -21,7 +21,7 @@ const StartPage = () => {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate('/chat');
+    navigate('/story');
   };
 
   return (
@@ -39,7 +39,7 @@ const StartPage = () => {
           onClick={handleClick}
           size="large"
         >
-          Start Chatting
+          Start Personalized Story Creating
         </Button>
       </Container>
     </BackgroundBox>

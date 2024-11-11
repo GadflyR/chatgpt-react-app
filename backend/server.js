@@ -8,7 +8,7 @@ require('dotenv').config(); // Load environment variables
 // Import the Azure Speech SDK
 const sdk = require('microsoft-cognitiveservices-speech-sdk');
 
-const allowedOrigins = ['https://story.ibot1.net'];
+const allowedOrigins = ['https://story.ibot1.net', 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net'];
 
 app.use(cors({
   origin: function (origin, callback) {
