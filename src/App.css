@@ -1,31 +1,74 @@
+/* App.css */
+
+body {
+  margin: 0;
+  font-family: 'Roboto', sans-serif;
+  background-color: #f0f2f5;
+}
+
 .App {
   text-align: center;
+  padding: 20px;
 }
 
 .App-logo {
-  height: 40vmin;
+  height: 30vmin;
   pointer-events: none;
+  border-radius: 50%;
+  box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s;
+}
+
+.App-logo:hover {
+  transform: scale(1.05);
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .App-logo {
-    animation: App-logo-spin infinite 20s linear;
+    animation: App-logo-spin infinite 15s linear;
   }
 }
 
 .App-header {
-  background-color: #282c34;
+  background: linear-gradient(135deg, #3b5998, #8b9dc3);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   font-size: calc(10px + 2vmin);
-  color: white;
+  color: #ffffff;
+  padding: 40px;
+  border-radius: 15px;
+  box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.3);
 }
 
 .App-link {
-  color: #61dafb;
+  color: #ff8c00;
+  text-decoration: none;
+  font-weight: bold;
+  border-bottom: 2px solid transparent;
+  transition: color 0.3s, border-bottom 0.3s;
+}
+
+.App-link:hover {
+  color: #ffa726;
+  border-bottom: 2px solid #ffa726;
+}
+
+button {
+  padding: 10px 20px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 25px;
+  background: #3b5998;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+button:hover {
+  background: #2d4373;
 }
 
 @keyframes App-logo-spin {
@@ -35,4 +78,19 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.NavBar {
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  margin: 20px;
+  padding: 10px 20px;
+  box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.NavBar .MuiToolbar-root {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
