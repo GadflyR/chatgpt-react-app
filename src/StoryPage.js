@@ -37,6 +37,7 @@ function StoryPage() {
   // Function to generate stories
   const handleGenerateStory = async (e) => {
     e.preventDefault();
+    console.log(`${backendUrl}/api/chat`);
 
     // Input validation
     if (!languageDifficulty) {
