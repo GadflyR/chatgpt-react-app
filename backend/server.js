@@ -5,8 +5,9 @@ const axios = require('axios');
 const cors = require('cors');
 require('dotenv').config(); // Load environment variables
 
-// Import the Azure Speech SDK
 const sdk = require('microsoft-cognitiveservices-speech-sdk');
+
+const app = express();
 
 const allowedOrigins = ['https://story.ibot1.net', 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net'];
 
@@ -22,9 +23,7 @@ app.use(cors({
   }
 }));
 
-const app = express();
 app.use(express.json());
-app.use(cors());
 
 // Endpoint to handle chat requests
 app.post('/api/chat', async (req, res) => {
