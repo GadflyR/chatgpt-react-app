@@ -13,7 +13,7 @@ function NavBar({ children }) {
     <AppBar position="static">
       <Toolbar>
         <Typography variant="h6" style={{ flexGrow: 1 }}>
-          ChatGPT App
+          iBot Story Generator
         </Typography>
         <Button color="inherit" component={Link} to="/">
           Home
