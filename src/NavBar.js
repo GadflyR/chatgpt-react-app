@@ -11,7 +11,7 @@ function NavBar({ children }) {
   const { currentUser } = useAuth();
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div style={{ margin: '20px' }}>
       <AppBar 
         position="fixed" 
         className="NavBar"
