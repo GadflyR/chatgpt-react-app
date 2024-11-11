@@ -15,7 +15,7 @@ function ChatPage() {
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://story.ibot1.net';
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
 
   const handleSubmit = async (e) => {
     e.preventDefault();

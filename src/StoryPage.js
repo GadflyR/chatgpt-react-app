@@ -32,7 +32,7 @@ function StoryPage() {
   const [isPlaying, setIsPlaying] = useState(false); // Indicates if playback is in progress
   const [currentAudioIndex, setCurrentAudioIndex] = useState(0); // Tracks the current audio being played
   const audioRef = useRef(null); // Reference to the current Audio object
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://story.ibot1.net';
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
 
   // Function to generate stories
   const handleGenerateStory = async (e) => {
