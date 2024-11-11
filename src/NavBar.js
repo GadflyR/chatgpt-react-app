@@ -10,7 +10,7 @@ function NavBar({ children }) {
   const { currentUser } = useAuth();
 
   return (
-    <AppBar position="static">
+    <AppBar position="static" style={{ backgroundColor: 'rgba(255, 255, 255, 0.6)', backdropFilter: 'blur(10px)' }}>
       <Toolbar>
         <Typography variant="h6" style={{ flexGrow: 1 }}>
           iBot Story Generator
