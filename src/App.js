@@ -1,3 +1,5 @@
+// src/App.js
+
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, CssBaseline, IconButton } from '@mui/material';
@@ -6,10 +8,11 @@ import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import StartPage from './StartPage';
 import ChatPage from './ChatPage';
-import StoryPage from './StoryPage'; // Import StoryPage
+import StoryPage from './StoryPage';
 import Login from './Login';
 import NavBar from './NavBar';
 import PrivateRoute from './PrivateRoute';
+import HistoryPage from './HistoryPage'; // Import HistoryPage
 
 function App() {
   const [mode, setMode] = useState('light');
@@ -44,6 +47,14 @@ function App() {
             element={
               <PrivateRoute>
                 <StoryPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/history"
+            element={
+              <PrivateRoute>
+                <HistoryPage />
               </PrivateRoute>
             }
           />

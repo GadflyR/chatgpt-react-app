@@ -1,5 +1,7 @@
+// src/NavBar.js
+
 import React from 'react';
-import { AppBar, Toolbar, Typography, Button, IconButton } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import Logout from './Logout';
@@ -23,6 +25,9 @@ function NavBar({ children }) {
             </Button>
             <Button color="inherit" component={Link} to="/story">
               Story
+            </Button>
+            <Button color="inherit" component={Link} to="/history">
+              History
             </Button>
           </>
         )}
