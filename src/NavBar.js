@@ -5,7 +5,7 @@ import { AppBar, Toolbar, Typography, Button } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import Logout from './Logout';
-import '../App.css';
+import './App.css';
 
 function NavBar({ children }) {
   const { currentUser } = useAuth();
