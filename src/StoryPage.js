@@ -15,7 +15,6 @@ import {
 } from '@mui/material';
 
 function StoryPage() {
-  // State variables for story generation
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [title, setTitle] = useState('');
@@ -29,7 +28,6 @@ function StoryPage() {
   const [loading, setLoading] = useState(false);
   const [currentDay, setCurrentDay] = useState(0);
   const [error, setError] = useState('');
-  const [selectedVoice, setSelectedVoice] = useState('en-US-JennyNeural');
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
 
@@ -67,7 +65,6 @@ function StoryPage() {
         let prompt = '';
 
         if (day === 1) {
-          // Constructing prompt for the first day
           prompt = `Write a ${languageDifficulty.toLowerCase()} language story`;
           if (storyType.trim()) {
             prompt += ` in the ${storyType} genre`;
@@ -91,7 +88,6 @@ function StoryPage() {
           prompt += '.';
           prompt += ' Keep the story concise, around 300 words.';
         } else {
-          // Constructing prompt for subsequent days
           if (previousStory.length > 1500) {
             const summaryPrompt = `Summarize the following story in 200 words:\n\n${previousStory}`;
             const summaryRes = await axios.post(`${backendUrl}/api/chat`, {
@@ -103,34 +99,28 @@ function StoryPage() {
           prompt = `Continue the following story into Day ${day}:\n\n${previousStory}\n\nEnsure the language difficulty remains ${languageDifficulty.toLowerCase()} and keep the story concise, around 300 words.`;
         }
 
-        // Sending prompt to OpenAI API
         const res = await axios.post(`${backendUrl}/api/chat`, { prompt });
         const assistantMessage = res.data.choices[0].message.content;
 
-        // Storing the generated story
         generatedStories.push({ day, content: assistantMessage.trim() });
-
-        // Updating previousStory for the next iteration
         previousStory = assistantMessage.trim();
       }
 
-      // Save to Firestore
       if (currentUser) {
         const userStoryCollection = collection(db, 'users', currentUser.uid, 'generatedStories');
         for (let storyItem of generatedStories) {
           await addDoc(userStoryCollection, {
             day: storyItem.day,
             content: storyItem.content,
-            timestamp: new Date(), // Add timestamp to track when story was generated
+            timestamp: new Date(),
           });
         }
       }
 
-      // Navigate to GeneratedStoryPage with the generated stories and selected voice
+      // Navigate to GeneratedStoryPage with the generated stories
       navigate('/generated-story', {
         state: {
           stories: generatedStories,
-          selectedVoice: selectedVoice,
         },
       });
 
@@ -154,9 +144,7 @@ function StoryPage() {
           Generate a Story Series
         </Typography>
 
-        {/* Input Fields Form */}
         <Box component="form" onSubmit={handleGenerateStory} mb={2}>
-          {/* Title (Optional) */}
           <TextField
             fullWidth
             label="Title (Optional)"
@@ -166,8 +154,6 @@ function StoryPage() {
             variant="outlined"
             margin="normal"
           />
-
-          {/* Story Type (Optional) */}
           <TextField
             select
             fullWidth
@@ -185,7 +171,6 @@ function StoryPage() {
             <MenuItem value="Horror">Horror</MenuItem>
           </TextField>
 
-          {/* Language Difficulty (Mandatory) */}
           <TextField
             select
             fullWidth
@@ -201,7 +186,6 @@ function StoryPage() {
             <MenuItem value="Advanced">Advanced</MenuItem>
           </TextField>
 
-          {/* Character Name (Mandatory) */}
           <TextField
             fullWidth
             label="Character Name"
@@ -213,7 +197,6 @@ function StoryPage() {
             required
           />
 
-          {/* Protagonist Characteristics (Optional) */}
           <TextField
             fullWidth
             label="Protagonist Characteristics (Optional)"
@@ -224,7 +207,6 @@ function StoryPage() {
             margin="normal"
           />
 
-          {/* Time (Optional) */}
           <TextField
             fullWidth
             label="Time (Optional)"
@@ -235,7 +217,6 @@ function StoryPage() {
             margin="normal"
           />
 
-          {/* Place (Optional) */}
           <TextField
             fullWidth
             label="Place (Optional)"
@@ -246,7 +227,6 @@ function StoryPage() {
             margin="normal"
           />
 
-          {/* Number of Days (Mandatory) */}
           <TextField
             fullWidth
             label="How many days do you want to generate?"
@@ -259,26 +239,6 @@ function StoryPage() {
             required
           />
 
-          {/* Select Voice */}
-          <TextField
-            select
-            fullWidth
-            label="Select Voice"
-            value={selectedVoice}
-            onChange={(e) => setSelectedVoice(e.target.value)}
-            variant="outlined"
-            margin="normal"
-            required
-          >
-            <MenuItem value="en-US-JennyNeural">Jenny (US)</MenuItem>
-            <MenuItem value="en-US-GuyNeural">Guy (US)</MenuItem>
-            <MenuItem value="en-GB-LibbyNeural">Libby (UK)</MenuItem>
-            <MenuItem value="en-GB-RyanNeural">Ryan (UK)</MenuItem>
-            <MenuItem value="en-AU-NatashaNeural">Natasha (AU)</MenuItem>
-            <MenuItem value="en-IN-NeerjaNeural">Neerja (IN)</MenuItem>
-          </TextField>
-
-          {/* Submit Button */}
           <Box display="flex" alignItems="center" mt={2}>
             <Button
               type="submit"
@@ -297,7 +257,6 @@ function StoryPage() {
           </Box>
         </Box>
 
-        {/* Display Error Messages */}
         {error && (
           <Box mt={2} p={2} bgcolor="#ffebee" borderRadius={4}>
             <Typography color="error" variant="body1">

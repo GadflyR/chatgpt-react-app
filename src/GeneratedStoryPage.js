@@ -1,15 +1,15 @@
-// src/GeneratedStoryPage.js
-
 import React, { useState, useRef, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Box, Button, Typography, Container, CircularProgress } from '@mui/material';
+import { useLocation } from 'react-router-dom';
+import { Box, Button, Typography, Container, CircularProgress, TextField, MenuItem } from '@mui/material';
 import axios from 'axios';
+import { useAuth } from './AuthContext';
 
 function GeneratedStoryPage() {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { stories, selectedVoice } = location.state || {}; // Destructure the state passed from the StoryPage
+  const { stories } = location.state || {};
+  const { currentUser } = useAuth();
 
+  const [selectedVoice, setSelectedVoice] = useState('en-US-JennyNeural');
   const [audioUrls, setAudioUrls] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
@@ -27,17 +27,22 @@ function GeneratedStoryPage() {
 
     try {
       // Generating audio for each story
-      const audioPromises = stories.map((storyItem) =>
-        axios.post(
+      const audioPromises = stories.map(async (storyItem) => {
+        const response = await axios.post(
           `${backendUrl}/api/tts`,
-          { text: `Day ${storyItem.day}: ${storyItem.content}`, voice: selectedVoice },
-          { responseType: 'blob' }
-        )
-      );
+          {
+            text: `Day ${storyItem.day}: ${storyItem.content}`,
+            voice: selectedVoice,
+            userId: currentUser.uid,
+            storyId: storyItem.day,
+          },
+          { responseType: 'json' }
+        );
 
-      const audioResponses = await Promise.all(audioPromises);
+        return response.data.audioUrl;
+      });
 
-      const urls = audioResponses.map((response) => URL.createObjectURL(response.data));
+      const urls = await Promise.all(audioPromises);
       setAudioUrls(urls);
     } catch (err) {
       console.error('Error:', err.message);
@@ -46,61 +51,6 @@ function GeneratedStoryPage() {
       setLoading(false);
     }
   };
-
-  const handlePlayStories = () => {
-    if (audioUrls.length === 0) return;
-
-    setIsPlaying(true);
-    setCurrentAudioIndex(0);
-  };
-
-  const handleStopStories = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
-    setIsPlaying(false);
-    setCurrentAudioIndex(0);
-  };
-
-  useEffect(() => {
-    // If playback is active and there are audios to play
-    if (isPlaying && currentAudioIndex < audioUrls.length) {
-      const currentUrl = audioUrls[currentAudioIndex];
-      const newAudio = new Audio(currentUrl);
-      audioRef.current = newAudio;
-
-      newAudio.play().catch((error) => {
-        console.error('Error playing audio:', error);
-        setError('Error playing audio.');
-        setIsPlaying(false);
-      });
-
-      newAudio.onended = () => {
-        setCurrentAudioIndex((prevIndex) => prevIndex + 1);
-      };
-
-      newAudio.onerror = (e) => {
-        console.error('Error during audio playback:', e);
-        setError('Error during audio playback.');
-        setIsPlaying(false);
-      };
-
-      return () => {
-        newAudio.pause();
-      };
-    } else if (isPlaying && currentAudioIndex >= audioUrls.length) {
-      setIsPlaying(false);
-      setCurrentAudioIndex(0);
-    }
-  }, [isPlaying, currentAudioIndex, audioUrls]);
-
-  useEffect(() => {
-    return () => {
-      audioUrls.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [audioUrls]);
 
   return (
     <Container maxWidth="md" style={{ marginTop: '75px' }}>
@@ -118,6 +68,24 @@ function GeneratedStoryPage() {
             </Box>
           ))}
 
+        <TextField
+          select
+          fullWidth
+          label="Select Voice"
+          value={selectedVoice}
+          onChange={(e) => setSelectedVoice(e.target.value)}
+          variant="outlined"
+          margin="normal"
+          required
+        >
+          <MenuItem value="en-US-JennyNeural">Jenny (US)</MenuItem>
+          <MenuItem value="en-US-GuyNeural">Guy (US)</MenuItem>
+          <MenuItem value="en-GB-LibbyNeural">Libby (UK)</MenuItem>
+          <MenuItem value="en-GB-RyanNeural">Ryan (UK)</MenuItem>
+          <MenuItem value="en-AU-NatashaNeural">Natasha (AU)</MenuItem>
+          <MenuItem value="en-IN-NeerjaNeural">Neerja (IN)</MenuItem>
+        </TextField>
+
         <Box display="flex" alignItems="center" mt={2}>
           <Button
             variant="contained"
@@ -130,7 +98,7 @@ function GeneratedStoryPage() {
           <Button
             variant="contained"
             color="secondary"
-            onClick={handlePlayStories}
+            onClick={() => setIsPlaying(true)}
             style={{ marginLeft: '16px' }}
             disabled={loading || isPlaying || audioUrls.length === 0}
           >
@@ -139,7 +107,7 @@ function GeneratedStoryPage() {
           <Button
             variant="outlined"
             color="default"
-            onClick={handleStopStories}
+            onClick={() => setIsPlaying(false)}
             style={{ marginLeft: '16px' }}
             disabled={!isPlaying}
           >
@@ -147,7 +115,6 @@ function GeneratedStoryPage() {
           </Button>
         </Box>
 
-        {/* Display Error Messages */}
         {error && (
           <Box mt={2} p={2} bgcolor="#ffebee" borderRadius={4}>
             <Typography color="error" variant="body1">
