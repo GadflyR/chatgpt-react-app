@@ -34,7 +34,6 @@ function GeneratedStoryPage() {
     try {
       // Generating audio for each story
       const audioPromises = stories.map(async (storyItem) => {
-        // Make a request to your server to generate TTS audio
         const response = await axios.post(
           `${backendUrl}/api/tts`,
           {
@@ -44,27 +43,36 @@ function GeneratedStoryPage() {
           { responseType: 'blob' }
         );
   
+        // Ensure response is a valid blob
+        if (!response.data) {
+          throw new Error("Failed to retrieve audio data from server.");
+        }
+  
         const audioBlob = response.data;
-        const audioFile = new File([audioBlob], `story_${uuidv4()}.mp3`, {
+        const audioFileName = `story_${uuidv4()}.mp3`;
+        const audioFile = new File([audioBlob], audioFileName, {
           type: 'audio/mpeg',
         });
   
-        // Upload the audio file to Firebase Storage
-        const storageRef = ref(storage, `user_stories/${currentUser.uid}/story_${storyItem.day}_${uuidv4()}.mp3`);
+        // Firebase Storage: Create a reference and upload file
+        const storagePath = `user_stories/${currentUser.uid}/${audioFileName}`;
+        const storageRef = ref(storage, storagePath);
         const uploadResult = await uploadBytes(storageRef, audioFile);
   
-        // Get the download URL from Firebase Storage
+        // Fetch the download URL from Firebase Storage
         const audioUrl = await getDownloadURL(uploadResult.ref);
   
-        // Save the download URL to Firestore
+        // Save the download URL to Firestore for that story
         const storyDocRef = doc(db, 'users', currentUser.uid, 'generatedStories', storyItem.day.toString());
         await updateDoc(storyDocRef, { audioUrl });
   
         return audioUrl;
       });
   
+      // Resolve all audio URLs and set state
       const urls = await Promise.all(audioPromises);
       setAudioUrls(urls);
+  
     } catch (err) {
       console.error('Error:', err.message);
       setError('Error generating speech audio.');
