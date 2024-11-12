@@ -4,10 +4,6 @@ body {
   font-family: 'Roboto', sans-serif;
 }
 
-html, body, #root {
-  height: 100%; /* Ensure the entire page takes up full height */
-}
-
 .App {
   text-align: center;
   padding: 20px;
