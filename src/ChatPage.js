@@ -44,7 +44,7 @@ function ChatPage() {
   };
 
   return (
-    <Container maxWidth="md">
+    <Container maxWidth="md" style={{ marginTop: '75px' }}>
       <Box mt={4}>
         <Typography variant="h4" component="h1" gutterBottom>
           Chat with ChatGPT
