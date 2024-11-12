@@ -4,8 +4,6 @@ body {
   margin: 0;
   padding: 0; /* Remove all padding */
   font-family: 'Roboto', sans-serif;
-  background: url('./assets/background.jpg') no-repeat center center fixed; /* Use your background image */
-  background-size: cover; /* Ensure background covers the entire page */
 }
 
 html, body, #root {
