@@ -51,6 +51,14 @@ function App() {
             }
           />
           <Route
+            path="/generated-story"
+            element={
+              <PrivateRoute>
+                <GeneratedStoryPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
             path="/history"
             element={
               <PrivateRoute>

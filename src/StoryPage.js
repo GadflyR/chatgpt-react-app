@@ -1,10 +1,9 @@
-// src/StoryPage.js
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { useAuth } from './AuthContext'; // Import to access current user
 import { db } from './firebase'; // Import Firestore instance
 import { collection, addDoc } from "firebase/firestore"; // Firestore functions
+import { useNavigate } from 'react-router-dom';
 import {
   TextField,
   Button,
@@ -17,6 +16,7 @@ import {
 
 function StoryPage() {
   // State variables for story generation
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [title, setTitle] = useState('');
   const [protagonist, setProtagonist] = useState('');
@@ -26,19 +26,12 @@ function StoryPage() {
   const [time, setTime] = useState('');
   const [place, setPlace] = useState('');
   const [numDays, setNumDays] = useState(1);
-  const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentDay, setCurrentDay] = useState(0);
   const [error, setError] = useState('');
-
-  // State variables for audio playback
-  const [audioUrls, setAudioUrls] = useState([]); // Stores the URLs of generated audio files
-  const [isPlaying, setIsPlaying] = useState(false); // Indicates if playback is in progress
-  const [currentAudioIndex, setCurrentAudioIndex] = useState(0); // Tracks the current audio being played
-  const audioRef = useRef(null); // Reference to the current Audio object
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
-  
   const [selectedVoice, setSelectedVoice] = useState('en-US-JennyNeural');
+
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
 
   // Function to generate stories
   const handleGenerateStory = async (e) => {
@@ -63,11 +56,7 @@ function StoryPage() {
     // Reset state before generating
     setLoading(true);
     setError('');
-    setStories([]);
     setCurrentDay(0);
-    setAudioUrls([]);
-    setIsPlaying(false);
-    setCurrentAudioIndex(0);
 
     let previousStory = '';
     const generatedStories = [];
@@ -125,8 +114,7 @@ function StoryPage() {
         previousStory = assistantMessage.trim();
       }
 
-      setStories(generatedStories);
-
+      // Save to Firestore
       if (currentUser) {
         const userStoryCollection = collection(db, 'users', currentUser.uid, 'generatedStories');
         for (let storyItem of generatedStories) {
@@ -137,7 +125,15 @@ function StoryPage() {
           });
         }
       }
-      
+
+      // Navigate to GeneratedStoryPage with the generated stories and selected voice
+      navigate('/generated-story', {
+        state: {
+          stories: generatedStories,
+          selectedVoice: selectedVoice,
+        },
+      });
+
     } catch (err) {
       console.error('Error:', err.response ? err.response.data : err.message);
       setError(
@@ -150,98 +146,6 @@ function StoryPage() {
       setCurrentDay(0);
     }
   };
-
-  // Function to initiate audio playback
-  const handlePlayStories = async () => {
-    if (stories.length === 0) {
-      alert('No stories to play.');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setAudioUrls([]);
-    setIsPlaying(false);
-    setCurrentAudioIndex(0);
-
-    try {
-      // Generating audio for each story
-      const audioPromises = stories.map((storyItem) =>
-        axios.post(
-          `${backendUrl}/api/tts`,
-          { text: `Day ${storyItem.day}: ${storyItem.content}`, voice: selectedVoice },
-          { responseType: 'blob' }
-        )
-      );
-
-      const audioResponses = await Promise.all(audioPromises);
-
-      const urls = audioResponses.map((response) => URL.createObjectURL(response.data));
-      setAudioUrls(urls);
-      setIsPlaying(true);
-    } catch (err) {
-      console.error('Error:', err.message);
-      setError('Error generating speech audio.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Function to stop audio playback
-  const handleStopStories = () => {
-    if (audioRef.current) {
-      audioRef.current.pause(); // Pause the current audio
-      audioRef.current.currentTime = 0; // Reset playback time
-      audioRef.current = null; // Clear the reference
-    }
-    setIsPlaying(false); // Update playback state
-    setCurrentAudioIndex(0); // Reset audio index
-  };
-
-  // useEffect to handle sequential audio playback
-  useEffect(() => {
-    // If playback is active and there are audios to play
-    if (isPlaying && currentAudioIndex < audioUrls.length) {
-      const currentUrl = audioUrls[currentAudioIndex];
-      const newAudio = new Audio(currentUrl); // Create a new Audio object
-      audioRef.current = newAudio; // Store the Audio object in ref
-
-      // Attempt to play the audio
-      newAudio.play().catch((error) => {
-        console.error('Error playing audio:', error);
-        setError('Error playing audio.');
-        setIsPlaying(false);
-      });
-
-      // Event listener for when the current audio ends
-      newAudio.onended = () => {
-        setCurrentAudioIndex((prevIndex) => prevIndex + 1); // Move to the next audio
-      };
-
-      // Event listener for audio playback errors
-      newAudio.onerror = (e) => {
-        console.error('Error during audio playback:', e);
-        setError('Error during audio playback.');
-        setIsPlaying(false);
-      };
-
-      // Cleanup function to pause audio if the component unmounts or dependencies change
-      return () => {
-        newAudio.pause();
-      };
-    } else if (isPlaying && currentAudioIndex >= audioUrls.length) {
-      // All audios have been played
-      setIsPlaying(false);
-      setCurrentAudioIndex(0);
-    }
-  }, [isPlaying, currentAudioIndex, audioUrls]);
-
-  // Cleanup object URLs when the component unmounts to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      audioUrls.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [audioUrls]);
 
   return (
     <Container maxWidth="md" style={{ marginTop: '75px' }}>
@@ -279,7 +183,6 @@ function StoryPage() {
             <MenuItem value="Fantasy">Fantasy</MenuItem>
             <MenuItem value="Science Fiction">Science Fiction</MenuItem>
             <MenuItem value="Horror">Horror</MenuItem>
-            {/* Add more options as desired */}
           </TextField>
 
           {/* Language Difficulty (Mandatory) */}
@@ -356,6 +259,7 @@ function StoryPage() {
             required
           />
 
+          {/* Select Voice */}
           <TextField
             select
             fullWidth
@@ -392,40 +296,6 @@ function StoryPage() {
             )}
           </Box>
         </Box>
-
-        {/* Play and Stop Buttons */}
-        {stories.length > 0 && (
-          <Box display="flex" alignItems="center" mt={2}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handlePlayStories}
-              disabled={loading || isPlaying}
-            >
-              {isPlaying ? 'Playing...' : 'Play Stories'}
-            </Button>
-            <Button
-              variant="outlined"
-              color="secondary"
-              onClick={handleStopStories}
-              style={{ marginLeft: '16px' }}
-              disabled={!isPlaying}
-            >
-              Stop Stories
-            </Button>
-          </Box>
-        )}
-
-        {/* Display Generated Stories */}
-        {stories.length > 0 &&
-          stories.map((storyItem) => (
-            <Box key={storyItem.day} mt={2} p={2} bgcolor="#f5f5f5" borderRadius={4}>
-              <Typography variant="h6">Day {storyItem.day}:</Typography>
-              <Typography variant="body1" style={{ whiteSpace: 'pre-line' }}>
-                {storyItem.content}
-              </Typography>
-            </Box>
-          ))}
 
         {/* Display Error Messages */}
         {error && (
