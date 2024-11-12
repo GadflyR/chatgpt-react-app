@@ -1,5 +1,3 @@
-// server.js
-
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -8,24 +6,24 @@ require('dotenv').config(); // Load environment variables
 
 const sdk = require('microsoft-cognitiveservices-speech-sdk');
 
-const app = express();
-
-const allowedOrigins = ['https://story.ibot1.net', 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net'];
 const admin = require('firebase-admin');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 
-app.use(express.static(path.join(__dirname, '../build')));
+const app = express();
 
+const allowedOrigins = ['https://story.ibot1.net', 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net'];
+
+// Initialize Firebase Admin
 admin.initializeApp({
   credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
   storageBucket: process.env.FIREBASE_STORAGE_BUCKET
 });
-const bucket = admin.storage().bucket();
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../build', 'index.html'));
-});
+const bucket = admin.storage().bucket();
+const firestore = admin.firestore();
+
+app.use(express.static(path.join(__dirname, '../build')));
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -41,6 +39,10 @@ app.use(cors({
 
 app.use(express.json());
 
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../build', 'index.html'));
+});
+
 app.post('/api/chat', async (req, res) => {
   const { prompt } = req.body;
 
@@ -52,9 +54,9 @@ app.post('/api/chat', async (req, res) => {
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: 'gpt-4o-mini', // This is a valid model name
+        model: 'gpt-4o-mini', // Ensure this model name is valid
         messages: [
-          { role: 'user', content: prompt }, // Ensure 'content' is included
+          { role: 'user', content: prompt }, 
         ],
       },
       {
@@ -62,15 +64,13 @@ app.post('/api/chat', async (req, res) => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         },
-        timeout: 30000, // Optional: Set a timeout for the request
+        timeout: 30000, 
       }
     );
 
     res.json(response.data);
   } catch (error) {
     console.error('Error communicating with OpenAI API:', error.response ? error.response.data : error.message);
-
-    // Return the error message from OpenAI if available
     if (error.response && error.response.data && error.response.data.error && error.response.data.error.message) {
       res.status(error.response.status).json({ error: error.response.data.error.message });
     } else {
@@ -99,7 +99,6 @@ app.post('/api/tts', async (req, res) => {
     const speechConfig = sdk.SpeechConfig.fromSubscription(subscriptionKey, region);
     speechConfig.speechSynthesisVoiceName = voice || 'en-US-JennyNeural';
 
-    // Create the SpeechSynthesizer without specifying AudioConfig
     const synthesizer = new sdk.SpeechSynthesizer(speechConfig, null);
 
     console.log('Starting speech synthesis...');
@@ -116,29 +115,41 @@ app.post('/api/tts', async (req, res) => {
           // Write audio data to a temporary file
           fs.writeFileSync(tempAudioPath, audioBuffer);
 
-          // Upload the file to Firebase Storage
-          const destination = `user_stories/${userId}/story_${storyId}.mp3`;
-          await bucket.upload(tempAudioPath, {
-            destination,
-            metadata: {
-              contentType: 'audio/mpeg',
+          try {
+            // Upload the file to Firebase Storage
+            const destination = `user_stories/${userId}/story_${storyId}.mp3`;
+            await bucket.upload(tempAudioPath, {
+              destination,
               metadata: {
-                firebaseStorageDownloadTokens: uuidv4(),
+                contentType: 'audio/mpeg',
+                metadata: {
+                  firebaseStorageDownloadTokens: uuidv4(),
+                },
               },
-            },
-          });
+            });
 
-          // Generate download URL
-          const file = bucket.file(destination);
-          const [url] = await file.getSignedUrl({
-            action: 'read',
-            expires: '03-01-2500',
-          });
+            // Generate download URL
+            const file = bucket.file(destination);
+            const [url] = await file.getSignedUrl({
+              action: 'read',
+              expires: '03-01-2500',
+            });
 
-          // Cleanup temporary file
-          fs.unlinkSync(tempAudioPath);
+            // Save audio URL to Firestore
+            const storyRef = firestore.collection('users').doc(userId).collection('generatedStories').doc(storyId);
+            await storyRef.update({ audioUrl: url });
 
-          res.json({ audioUrl: url });
+            // Cleanup temporary file
+            fs.unlinkSync(tempAudioPath);
+
+            // Send the audio URL back to the client
+            res.json({ audioUrl: url });
+
+          } catch (uploadError) {
+            console.error('Error uploading to Firebase Storage:', uploadError);
+            res.status(500).json({ error: 'Error uploading audio to storage.' });
+          }
+
         } else {
           console.error('Speech synthesis failed:', result.errorDetails);
           res.status(500).json({ error: 'Speech synthesis failed.' });
