@@ -7,6 +7,7 @@ require('dotenv').config(); // Load environment variables
 const sdk = require('microsoft-cognitiveservices-speech-sdk');
 
 const admin = require('firebase-admin');
+const serviceAccount = require("firebase-adminsdk.json");
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 
@@ -16,7 +17,7 @@ const allowedOrigins = ['https://story.ibot1.net', 'https://ibotstorybackend-f6e
 
 // Initialize Firebase Admin
 admin.initializeApp({
-  credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+  credential: admin.credential.cert(serviceAccount),
   storageBucket: process.env.FIREBASE_STORAGE_BUCKET
 });
 
