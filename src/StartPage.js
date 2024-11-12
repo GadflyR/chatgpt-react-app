@@ -2,7 +2,8 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Typography, Container, Box } from '@mui/material';
 import { styled } from '@mui/system';
-import BackgroundImage from './assets/background.jpg'; // Add a background image
+import BackgroundImage from './assets/background.jpg';
+import './App.css';
 
 const BackgroundBox = styled(Box)(({ theme }) => ({
   backgroundImage: `url(${BackgroundImage})`,
