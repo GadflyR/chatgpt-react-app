@@ -3,6 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { Box, Button, Typography, Container, CircularProgress, TextField, MenuItem } from '@mui/material';
 import axios from 'axios';
 import { useAuth } from './AuthContext';
+import { db } from './firebase'; // Import Firestore instance
+import { doc, updateDoc } from 'firebase/firestore';
 
 function GeneratedStoryPage() {
   const location = useLocation();
@@ -38,6 +40,9 @@ function GeneratedStoryPage() {
           },
           { responseType: 'json' }
         );
+
+        const storyDocRef = doc(db, 'users', currentUser.uid, 'generatedStories', storyItem.day.toString());
+        await updateDoc(storyDocRef, { audioUrl: response.data.audioUrl });
 
         return response.data.audioUrl;
       });

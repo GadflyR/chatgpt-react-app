@@ -11,8 +11,17 @@ const sdk = require('microsoft-cognitiveservices-speech-sdk');
 const app = express();
 
 const allowedOrigins = ['https://story.ibot1.net', 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net'];
+const admin = require('firebase-admin');
+const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
 
 app.use(express.static(path.join(__dirname, '../build')));
+
+admin.initializeApp({
+  credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET
+});
+const bucket = admin.storage().bucket();
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../build', 'index.html'));
@@ -71,7 +80,7 @@ app.post('/api/chat', async (req, res) => {
 });
 
 app.post('/api/tts', async (req, res) => {
-  const { text, voice } = req.body;
+  const { text, voice, userId, storyId } = req.body;
 
   if (!text || typeof text !== 'string') {
     console.error('Invalid text provided.');
@@ -88,7 +97,7 @@ app.post('/api/tts', async (req, res) => {
 
   try {
     const speechConfig = sdk.SpeechConfig.fromSubscription(subscriptionKey, region);
-    speechConfig.speechSynthesisVoiceName = voice || 'en-US-JennyNeural'; // Use the selected voice or default to 'en-US-JennyNeural'
+    speechConfig.speechSynthesisVoiceName = voice || 'en-US-JennyNeural';
 
     // Create the SpeechSynthesizer without specifying AudioConfig
     const synthesizer = new sdk.SpeechSynthesizer(speechConfig, null);
@@ -97,20 +106,39 @@ app.post('/api/tts', async (req, res) => {
 
     synthesizer.speakTextAsync(
       text,
-      (result) => {
+      async (result) => {
         if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
           console.log('Speech synthesis completed successfully.');
 
-          // The audio data is returned as a Uint8Array
           const audioBuffer = Buffer.from(result.audioData);
+          const tempAudioPath = `/tmp/${uuidv4()}.mp3`;
 
-          res.set({
-            'Content-Type': 'audio/mpeg',
-            'Content-Length': audioBuffer.length,
-            'Cache-Control': 'no-cache',
+          // Write audio data to a temporary file
+          fs.writeFileSync(tempAudioPath, audioBuffer);
+
+          // Upload the file to Firebase Storage
+          const destination = `user_stories/${userId}/story_${storyId}.mp3`;
+          await bucket.upload(tempAudioPath, {
+            destination,
+            metadata: {
+              contentType: 'audio/mpeg',
+              metadata: {
+                firebaseStorageDownloadTokens: uuidv4(),
+              },
+            },
           });
 
-          res.send(audioBuffer);
+          // Generate download URL
+          const file = bucket.file(destination);
+          const [url] = await file.getSignedUrl({
+            action: 'read',
+            expires: '03-01-2500',
+          });
+
+          // Cleanup temporary file
+          fs.unlinkSync(tempAudioPath);
+
+          res.json({ audioUrl: url });
         } else {
           console.error('Speech synthesis failed:', result.errorDetails);
           res.status(500).json({ error: 'Speech synthesis failed.' });
