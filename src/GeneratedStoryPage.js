@@ -34,6 +34,7 @@ function GeneratedStoryPage() {
     try {
       // Generating audio for each story
       const audioPromises = stories.map(async (storyItem) => {
+        // Make a request to your server to generate TTS audio
         const response = await axios.post(
           `${backendUrl}/api/tts`,
           {
@@ -48,14 +49,14 @@ function GeneratedStoryPage() {
           type: 'audio/mpeg',
         });
   
-        // Upload the file to Firebase Storage
+        // Upload the audio file to Firebase Storage
         const storageRef = ref(storage, `user_stories/${currentUser.uid}/story_${storyItem.day}_${uuidv4()}.mp3`);
         const uploadResult = await uploadBytes(storageRef, audioFile);
   
         // Get the download URL from Firebase Storage
         const audioUrl = await getDownloadURL(uploadResult.ref);
   
-        // Save audio URL to Firestore
+        // Save the download URL to Firestore
         const storyDocRef = doc(db, 'users', currentUser.uid, 'generatedStories', storyItem.day.toString());
         await updateDoc(storyDocRef, { audioUrl });
   
