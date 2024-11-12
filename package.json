@@ -13,14 +13,14 @@
     "axios": "^1.7.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "eslint": "^9.14.0",
+    "eslint": "^8.0.0",
     "firebase": "^11.0.1",
     "firebase-admin": "^12.7.0",
     "microsoft-cognitiveservices-speech-sdk": "^1.41.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.27.0",
-    "react-scripts": "5.0.1",
+    "react-scripts": "^5.0.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
@@ -48,6 +48,8 @@
     ]
   },
   "devDependencies": {
-    "@babel/plugin-proposal-private-property-in-object": "^7.21.11"
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@babel/plugin-transform-private-methods": "^7.25.9",
+    "eslint-config-react-app": "^7.0.1"
   }
 }
