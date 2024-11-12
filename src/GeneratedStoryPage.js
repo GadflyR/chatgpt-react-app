@@ -2,9 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Box, Button, Typography, Container, CircularProgress, TextField, MenuItem } from '@mui/material';
 import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from './AuthContext';
 import { db } from './firebase'; // Import Firestore instance
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/firestore';
 
 const storage = getStorage();
 
