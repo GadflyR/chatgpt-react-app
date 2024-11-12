@@ -5,8 +5,8 @@ import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from './AuthContext';
 import { db } from './firebase'; // Import Firestore instance
-import { doc, updateDoc, ref, uploadBytes, getDownloadURL } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { doc, updateDoc, uploadBytes, getDownloadURL } from 'firebase/firestore';
+import { getStorage, ref } from 'firebase/storage';
 
 const storage = getStorage();
 
