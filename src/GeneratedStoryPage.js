@@ -6,6 +6,8 @@ import { useAuth } from './AuthContext';
 import { db } from './firebase'; // Import Firestore instance
 import { doc, updateDoc } from 'firebase/firestore';
 
+const storage = getStorage();
+
 function GeneratedStoryPage() {
   const location = useLocation();
   const { stories } = location.state || {};
@@ -26,7 +28,7 @@ function GeneratedStoryPage() {
     setAudioUrls([]);
     setIsPlaying(false);
     setCurrentAudioIndex(0);
-
+  
     try {
       // Generating audio for each story
       const audioPromises = stories.map(async (storyItem) => {
@@ -35,18 +37,29 @@ function GeneratedStoryPage() {
           {
             text: `Day ${storyItem.day}: ${storyItem.content}`,
             voice: selectedVoice,
-            userId: currentUser.uid,
-            storyId: storyItem.day,
           },
-          { responseType: 'json' }
+          { responseType: 'blob' }
         );
-
+  
+        const audioBlob = response.data;
+        const audioFile = new File([audioBlob], `story_${uuidv4()}.mp3`, {
+          type: 'audio/mpeg',
+        });
+  
+        // Upload the file to Firebase Storage
+        const storageRef = ref(storage, `user_stories/${currentUser.uid}/story_${storyItem.day}_${uuidv4()}.mp3`);
+        const uploadResult = await uploadBytes(storageRef, audioFile);
+  
+        // Get the download URL from Firebase Storage
+        const audioUrl = await getDownloadURL(uploadResult.ref);
+  
+        // Save audio URL to Firestore
         const storyDocRef = doc(db, 'users', currentUser.uid, 'generatedStories', storyItem.day.toString());
-        await updateDoc(storyDocRef, { audioUrl: response.data.audioUrl });
-
-        return response.data.audioUrl;
+        await updateDoc(storyDocRef, { audioUrl });
+  
+        return audioUrl;
       });
-
+  
       const urls = await Promise.all(audioPromises);
       setAudioUrls(urls);
     } catch (err) {
@@ -55,7 +68,7 @@ function GeneratedStoryPage() {
     } finally {
       setLoading(false);
     }
-  };
+  };  
 
   return (
     <Container maxWidth="md" style={{ marginTop: '75px' }}>
