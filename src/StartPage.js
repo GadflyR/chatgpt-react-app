@@ -42,6 +42,7 @@ const StartPage = () => {
           color="primary"
           onClick={handleClick}
           size="large"
+          className="NavBar"
         >
           Start Personalized Story Creating
         </Button>
