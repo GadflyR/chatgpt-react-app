@@ -2,11 +2,11 @@
 
 @font-face {
   font-family: 'HandTitle';
-  src: url('src/fonts/waltographUI.ttf'),
+  src: url('fonts/waltographUI.ttf'),
 }
 @font-face {
   font-family: 'TextFont';
-  src: url('src/fonts/Ubuntu-Title.ttf'),
+  src: url('fonts/Ubuntu-Title.ttf'),
 }
 
 body {
