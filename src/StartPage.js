@@ -22,14 +22,12 @@ const StartPage = () => {
         <div className='Title'>
           Customize Your Own Series!
         </div>
-        <Typography variant="h5" component="p" gutterBottom>
-          iBot Story Generator
-        </Typography>
         <Button
           className="Button"
           variant="contained"
           onClick={handleClick}
           size="large"
+          maxWidth
         >
           Start Personalized Story Creating
         </Button>

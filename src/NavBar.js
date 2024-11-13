@@ -13,21 +13,21 @@ function NavBar({ children }) {
   return (
     <AppBar className="NavBar">
       <Toolbar>
-        <Typography variant="h6" style={{ flexGrow: 1, marginLeft: '16px' }}>
+        <Typography className='text' variant="h6" style={{ flexGrow: 1, marginLeft: '16px' }}>
           iBot Story Generator
         </Typography>
-        <Button color="inherit" component={Link} to="/">
+        <Button className='text' color="inherit" component={Link} to="/">
           Home
         </Button>
         {currentUser && (
           <>
-            <Button color="inherit" component={Link} to="/chat">
+            <Button className='text' color="inherit" component={Link} to="/chat">
               Chat
             </Button>
-            <Button color="inherit" component={Link} to="/story">
+            <Button className='text' color="inherit" component={Link} to="/story">
               Story
             </Button>
-            <Button color="inherit" component={Link} to="/history">
+            <Button className='text' color="inherit" component={Link} to="/history">
               History
             </Button>
           </>
@@ -35,7 +35,7 @@ function NavBar({ children }) {
         {children}
         {currentUser ? (
           <>
-            <Typography variant="subtitle1" style={{ marginRight: '16px' }}>
+            <Typography className='text' variant="subtitle1" style={{ marginRight: '16px' }}>
               {currentUser.displayName}
             </Typography>
             <Logout />
