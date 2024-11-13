@@ -5,20 +5,8 @@ import { styled } from '@mui/system';
 import BackgroundImage from './assets/background.jpg';
 import './App.css';
 
-const BackgroundBox = styled(Box)(({ theme }) => ({
+const BackgroundBox = styled(Box)(() => ({
   backgroundImage: `url(${BackgroundImage})`,
-  backgroundSize: 'cover',
-  backgroundPosition: 'center',
-  height: '100vh', // Ensures full viewport height
-  width: '100vw', // Ensures full viewport width
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  color: theme.palette.common.white,
-  textAlign: 'center',
-  padding: theme.spacing(2),
-  position: 'absolute',
-  top: '0',
 }));
 
 const StartPage = () => {
@@ -29,11 +17,11 @@ const StartPage = () => {
   };
 
   return (
-    <BackgroundBox>
+    <BackgroundBox className='Background'>
       <Container maxWidth="sm">
-        <Typography variant="h2" component="h1" gutterBottom className='Title'>
+        <div className='Title'>
           Customize Your Own Series!
-        </Typography>
+        </div>
         <Typography variant="h5" component="p" gutterBottom>
           iBot Story Generator
         </Typography>
@@ -42,7 +30,7 @@ const StartPage = () => {
           color="primary"
           onClick={handleClick}
           size="large"
-          className="NavBar"
+          className="Button"
         >
           Start Personalized Story Creating
         </Button>
