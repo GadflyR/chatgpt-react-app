@@ -26,11 +26,10 @@ const StartPage = () => {
           iBot Story Generator
         </Typography>
         <Button
+          className="Button"
           variant="contained"
-          color="primary"
           onClick={handleClick}
           size="large"
-          className="Button"
         >
           Start Personalized Story Creating
         </Button>

@@ -13,6 +13,7 @@ import {
   CircularProgress,
   MenuItem,
 } from '@mui/material';
+import './App.css';
 
 function StoryPage() {
   const navigate = useNavigate();
@@ -138,11 +139,11 @@ function StoryPage() {
   };
 
   return (
-    <Container maxWidth="md" style={{ marginTop: '75px' }}>
+    <Container maxWidth="md" style={{ marginTop: '100px' }}>
       <Box mt={4}>
-        <Typography variant="h4" component="h1" gutterBottom>
+        <div className='Subtitle'>
           Generate a Story Series
-        </Typography>
+        </div>
 
         <Box component="form" onSubmit={handleGenerateStory} mb={2}>
           <TextField

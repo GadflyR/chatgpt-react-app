@@ -8,6 +8,7 @@ import {
   Box,
   CircularProgress,
 } from '@mui/material';
+import './App.css';
 
 function HistoryPage() {
   const { currentUser } = useAuth(); // Use the user info to fetch their stories
@@ -53,11 +54,11 @@ function HistoryPage() {
   }
 
   return (
-    <Container maxWidth="md" style={{ marginTop: '75px' }}>
+    <Container maxWidth="md" style={{ marginTop: '100px' }}>
       <Box mt={4}>
-        <Typography variant="h4" component="h1" gutterBottom>
+        <div className='Subtitle'>
           Your Story History
-        </Typography>
+        </div>
         {error && (
           <Box mt={2} p={2} bgcolor="#ffebee" borderRadius={4}>
             <Typography color="error" variant="body1">

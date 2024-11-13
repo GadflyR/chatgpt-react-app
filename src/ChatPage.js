@@ -9,6 +9,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
+import './App.css';
 
 function ChatPage() {
   const [prompt, setPrompt] = useState('');
@@ -44,11 +45,11 @@ function ChatPage() {
   };
 
   return (
-    <Container maxWidth="md" style={{ marginTop: '75px' }}>
+    <Container maxWidth="md" style={{ marginTop: '100px' }}>
       <Box mt={4}>
-        <Typography variant="h4" component="h1" gutterBottom>
+        <div className='Subtitle'>
           Chat with ChatGPT
-        </Typography>
+        </div>
 
         {/* Input Field */}
         <Box component="form" onSubmit={handleSubmit} mb={2} display="flex">
