@@ -6,7 +6,6 @@ require('dotenv').config(); // Load environment variables
 
 const sdk = require('microsoft-cognitiveservices-speech-sdk');
 const { v4: uuidv4 } = require('uuid');
-const fs = require('fs');
 
 const app = express();
 
@@ -35,6 +34,7 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../build', 'index.html'));
 });
 
+// Route to handle OpenAI chat requests
 app.post('/api/chat', async (req, res) => {
   const { prompt } = req.body;
 
@@ -69,6 +69,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// Route to handle text-to-speech requests
 app.post('/api/tts', async (req, res) => {
   const { text, voice } = req.body;
 
@@ -95,32 +96,21 @@ app.post('/api/tts', async (req, res) => {
 
     synthesizer.speakTextAsync(
       text,
-      async (result) => {
+      (result) => {
         if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
           console.log('Speech synthesis completed successfully.');
 
+          // Send the audio data back directly as a buffer
           const audioBuffer = Buffer.from(result.audioData);
-          const tempAudioPath = `/tmp/${uuidv4()}.mp3`;
 
-          // Write audio data to a temporary file
-          fs.writeFileSync(tempAudioPath, audioBuffer);
-
-          // Read the audio file to send as a response
-          const audioStream = fs.createReadStream(tempAudioPath);
-
-          // Set headers for audio response
           res.set({
             'Content-Type': 'audio/mpeg',
-            'Content-Disposition': `attachment; filename="${uuidv4()}.mp3"`,
+            'Content-Length': audioBuffer.length,
+            'Cache-Control': 'no-cache',
+            'Content-Disposition': `inline; filename="tts-${uuidv4()}.mp3"`,
           });
 
-          // Pipe the audio stream back to the client
-          audioStream.pipe(res);
-
-          // Cleanup the temporary file after streaming
-          audioStream.on('close', () => {
-            fs.unlinkSync(tempAudioPath);
-          });
+          res.send(audioBuffer);
         } else {
           console.error('Speech synthesis failed:', result.errorDetails);
           res.status(500).json({ error: 'Speech synthesis failed.' });

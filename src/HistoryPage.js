@@ -7,7 +7,6 @@ import {
   Container,
   Box,
   CircularProgress,
-  Button,
 } from '@mui/material';
 
 function HistoryPage() {
@@ -73,19 +72,6 @@ function HistoryPage() {
               <Typography variant="body1" style={{ whiteSpace: 'pre-line' }}>
                 {storyItem.content}
               </Typography>
-              {storyItem.audioUrl && (
-                <Box mt={2}>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    href={storyItem.audioUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Play Audio
-                  </Button>
-                </Box>
-              )}
             </Box>
           ))
         ) : (

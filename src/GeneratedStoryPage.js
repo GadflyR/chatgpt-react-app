@@ -1,19 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Box, Button, Typography, Container, CircularProgress, TextField, MenuItem } from '@mui/material';
 import axios from 'axios';
-import { v4 as uuidv4 } from 'uuid';
-import { useAuth } from './AuthContext';
-import { db } from './firebase'; // Import Firestore instance
-import { doc, updateDoc } from 'firebase/firestore';
-import { uploadBytes, getDownloadURL, ref, getStorage } from 'firebase/storage';
-
-const storage = getStorage();
 
 function GeneratedStoryPage() {
   const location = useLocation();
   const { stories } = location.state || {};
-  const { currentUser } = useAuth();
 
   const [selectedVoice, setSelectedVoice] = useState('en-US-JennyNeural');
   const [audioUrls, setAudioUrls] = useState([]);
@@ -42,37 +34,20 @@ function GeneratedStoryPage() {
           },
           { responseType: 'blob' }
         );
-  
+
         // Ensure response is a valid blob
         if (!response.data) {
           throw new Error("Failed to retrieve audio data from server.");
         }
   
-        const audioBlob = response.data;
-        const audioFileName = `story_${uuidv4()}.mp3`;
-        const audioFile = new File([audioBlob], audioFileName, {
-          type: 'audio/mpeg',
-        });
-  
-        // Firebase Storage: Create a reference and upload file
-        const storagePath = `user_stories/${currentUser.uid}/${audioFileName}`;
-        const storageRef = ref(storage, storagePath);
-        const uploadResult = await uploadBytes(storageRef, audioFile);
-  
-        // Fetch the download URL from Firebase Storage
-        const audioUrl = await getDownloadURL(uploadResult.ref);
-  
-        // Save the download URL to Firestore for that story
-        const storyDocRef = doc(db, 'users', currentUser.uid, 'generatedStories', storyItem.day.toString());
-        await updateDoc(storyDocRef, { audioUrl });
-  
+        // Create an object URL from the response data (Blob)
+        const audioUrl = URL.createObjectURL(response.data);
         return audioUrl;
       });
   
       // Resolve all audio URLs and set state
       const urls = await Promise.all(audioPromises);
       setAudioUrls(urls);
-  
     } catch (err) {
       console.error('Error:', err.message);
       setError('Error generating speech audio.');
@@ -80,6 +55,40 @@ function GeneratedStoryPage() {
       setLoading(false);
     }
   };  
+
+  const handlePlayStories = () => {
+    if (audioUrls.length > 0) {
+      const currentUrl = audioUrls[currentAudioIndex];
+      const newAudio = new Audio(currentUrl);
+      audioRef.current = newAudio;
+
+      newAudio.play().catch((error) => {
+        console.error('Error playing audio:', error);
+        setError('Error playing audio.');
+      });
+
+      newAudio.onended = () => {
+        if (currentAudioIndex < audioUrls.length - 1) {
+          setCurrentAudioIndex((prevIndex) => prevIndex + 1);
+        } else {
+          setIsPlaying(false);
+          setCurrentAudioIndex(0);
+        }
+      };
+
+      setIsPlaying(true);
+    }
+  };
+
+  const handleStopStories = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    setIsPlaying(false);
+    setCurrentAudioIndex(0);
+  };
 
   return (
     <Container maxWidth="md" style={{ marginTop: '75px' }}>
@@ -127,7 +136,7 @@ function GeneratedStoryPage() {
           <Button
             variant="contained"
             color="secondary"
-            onClick={() => setIsPlaying(true)}
+            onClick={handlePlayStories}
             style={{ marginLeft: '16px' }}
             disabled={loading || isPlaying || audioUrls.length === 0}
           >
@@ -136,7 +145,7 @@ function GeneratedStoryPage() {
           <Button
             variant="outlined"
             color="default"
-            onClick={() => setIsPlaying(false)}
+            onClick={handleStopStories}
             style={{ marginLeft: '16px' }}
             disabled={!isPlaying}
           >
