@@ -1,7 +1,16 @@
 /* App.css */
 
+@font-face {
+  font-family: 'HandTitle';
+  src: url('src/fonts/waltographUI.ttf'),
+}
+@font-face {
+  font-family: 'TextFont';
+  src: url('src/fonts/Ubuntu-Title.ttf'),
+}
+
 body {
-  font-family: 'Roboto', sans-serif;
+  font-family: 'TextFont', sans-serif;
 }
 
 .App {
@@ -78,6 +87,10 @@ button:hover {
   }
 }
 
+.Title {
+  font-family: 'HandTitle', sans-serif;
+}
+
 .Button {
   background-color: rgba(98, 26, 232, 0.6) !important;
   color: #ffffff;
@@ -92,7 +105,7 @@ button:hover {
   backdrop-filter: blur(4px) !important;
   border-radius: 15px;
   box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.3);
-  padding: 0 20px;
+  margin-left: 50px;
   margin: 20px;
 }
 

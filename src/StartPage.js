@@ -31,7 +31,7 @@ const StartPage = () => {
   return (
     <BackgroundBox>
       <Container maxWidth="sm">
-        <Typography variant="h2" component="h1" gutterBottom>
+        <Typography variant="h2" component="h1" gutterBottom className='Title'>
           Customize Your Own Series!
         </Typography>
         <Typography variant="h5" component="p" gutterBottom>
