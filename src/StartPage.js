@@ -9,8 +9,6 @@ const BackgroundBox = styled(Box)(({ theme }) => ({
   backgroundImage: `url(${BackgroundImage})`,
   backgroundSize: 'cover',
   backgroundPosition: 'center',
-  height: '100vh', // Ensures full viewport height
-  width: '100vw', // Ensures full viewport width
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
