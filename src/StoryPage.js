@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from './AuthContext'; // Import to access current user
 import { db } from './firebase'; // Import Firestore instance
@@ -18,19 +18,81 @@ import './App.css';
 function StoryPage() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const [title, setTitle] = useState('');
-  const [protagonist, setProtagonist] = useState('');
-  const [storyType, setStoryType] = useState('');
-  const [languageDifficulty, setLanguageDifficulty] = useState('');
-  const [characterName, setCharacterName] = useState('');
-  const [time, setTime] = useState('');
-  const [place, setPlace] = useState('');
-  const [numDays, setNumDays] = useState(1);
+
+  // Initialize state with localStorage values or defaults
+  const [title, setTitle] = useState(() => localStorage.getItem('title') || '');
+  const [protagonist, setProtagonist] = useState(() => localStorage.getItem('protagonist') || '');
+  const [storyType, setStoryType] = useState(() => localStorage.getItem('storyType') || '');
+  const [languageDifficulty, setLanguageDifficulty] = useState(() => localStorage.getItem('languageDifficulty') || '');
+  const [characterName, setCharacterName] = useState(() => localStorage.getItem('characterName') || '');
+  const [time, setTime] = useState(() => localStorage.getItem('time') || '');
+  const [place, setPlace] = useState(() => localStorage.getItem('place') || '');
+  const [numDays, setNumDays] = useState(() => {
+    const savedNumDays = localStorage.getItem('numDays');
+    return savedNumDays ? parseInt(savedNumDays, 10) : 1;
+  });
   const [loading, setLoading] = useState(false);
   const [currentDay, setCurrentDay] = useState(0);
   const [error, setError] = useState('');
 
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
+
+  // Save to localStorage whenever inputs change
+  useEffect(() => {
+    localStorage.setItem('title', title);
+  }, [title]);
+
+  useEffect(() => {
+    localStorage.setItem('protagonist', protagonist);
+  }, [protagonist]);
+
+  useEffect(() => {
+    localStorage.setItem('storyType', storyType);
+  }, [storyType]);
+
+  useEffect(() => {
+    localStorage.setItem('languageDifficulty', languageDifficulty);
+  }, [languageDifficulty]);
+
+  useEffect(() => {
+    localStorage.setItem('characterName', characterName);
+  }, [characterName]);
+
+  useEffect(() => {
+    localStorage.setItem('time', time);
+  }, [time]);
+
+  useEffect(() => {
+    localStorage.setItem('place', place);
+  }, [place]);
+
+  useEffect(() => {
+    localStorage.setItem('numDays', numDays);
+  }, [numDays]);
+
+  // Optional: Consolidate useEffects into a single effect
+  /*
+  useEffect(() => {
+    const data = {
+      title,
+      protagonist,
+      storyType,
+      languageDifficulty,
+      characterName,
+      time,
+      place,
+      numDays,
+    };
+    localStorage.setItem('storyFormData', JSON.stringify(data));
+  }, [title, protagonist, storyType, languageDifficulty, characterName, time, place, numDays]);
+
+  // And initialize state accordingly
+  const [title, setTitle] = useState(() => {
+    const savedData = JSON.parse(localStorage.getItem('storyFormData'));
+    return savedData?.title || '';
+  });
+  // Repeat for other states
+  */
 
   // Function to generate stories
   const handleGenerateStory = async (e) => {
@@ -117,6 +179,16 @@ function StoryPage() {
           });
         }
       }
+
+      // Clear localStorage after successful generation
+      localStorage.removeItem('title');
+      localStorage.removeItem('protagonist');
+      localStorage.removeItem('storyType');
+      localStorage.removeItem('languageDifficulty');
+      localStorage.removeItem('characterName');
+      localStorage.removeItem('time');
+      localStorage.removeItem('place');
+      localStorage.removeItem('numDays');
 
       // Navigate to GeneratedStoryPage with the generated stories
       navigate('/generated-story', {
