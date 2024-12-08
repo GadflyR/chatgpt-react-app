@@ -31,6 +31,7 @@ function StoryPage() {
     const savedNumDays = localStorage.getItem('numDays');
     return savedNumDays ? parseInt(savedNumDays, 10) : 1;
   });
+  const [mainStoryline, setMainStoryline] = useState(() => localStorage.getItem('mainStoryline') || ''); // New State
   const [loading, setLoading] = useState(false);
   const [currentDay, setCurrentDay] = useState(0);
   const [error, setError] = useState('');
@@ -70,29 +71,9 @@ function StoryPage() {
     localStorage.setItem('numDays', numDays);
   }, [numDays]);
 
-  // Optional: Consolidate useEffects into a single effect
-  /*
   useEffect(() => {
-    const data = {
-      title,
-      protagonist,
-      storyType,
-      languageDifficulty,
-      characterName,
-      time,
-      place,
-      numDays,
-    };
-    localStorage.setItem('storyFormData', JSON.stringify(data));
-  }, [title, protagonist, storyType, languageDifficulty, characterName, time, place, numDays]);
-
-  // And initialize state accordingly
-  const [title, setTitle] = useState(() => {
-    const savedData = JSON.parse(localStorage.getItem('storyFormData'));
-    return savedData?.title || '';
-  });
-  // Repeat for other states
-  */
+    localStorage.setItem('mainStoryline', mainStoryline); // Save Main Storyline
+  }, [mainStoryline]);
 
   // Function to generate stories
   const handleGenerateStory = async (e) => {
@@ -148,6 +129,10 @@ function StoryPage() {
               prompt += time.trim() ? ` at ${place}` : ` in ${place}`;
             }
           }
+          // Incorporate Main Storyline if provided
+          if (mainStoryline.trim()) {
+            prompt += ` with the main storyline focusing on ${mainStoryline}`;
+          }
           prompt += '.';
           prompt += ' Keep the story concise, around 300 words.';
         } else {
@@ -176,6 +161,8 @@ function StoryPage() {
             day: storyItem.day,
             content: storyItem.content,
             timestamp: new Date(),
+            // Optionally store mainStoryline with each story
+            // mainStoryline: mainStoryline.trim() || null,
           });
         }
       }
@@ -189,6 +176,7 @@ function StoryPage() {
       localStorage.removeItem('time');
       localStorage.removeItem('place');
       localStorage.removeItem('numDays');
+      localStorage.removeItem('mainStoryline'); // Clear Main Storyline
 
       // Navigate to GeneratedStoryPage with the generated stories
       navigate('/generated-story', {
@@ -296,6 +284,16 @@ function StoryPage() {
             placeholder="e.g., a small village, outer space"
             value={place}
             onChange={(e) => setPlace(e.target.value)}
+            variant="outlined"
+            margin="normal"
+          />
+
+          <TextField
+            fullWidth
+            label="Main Storyline (Optional)"
+            placeholder="e.g., A quest to find the lost treasure"
+            value={mainStoryline}
+            onChange={(e) => setMainStoryline(e.target.value)}
             variant="outlined"
             margin="normal"
           />

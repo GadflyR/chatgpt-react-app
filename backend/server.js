@@ -46,7 +46,7 @@ app.post('/api/chat', async (req, res) => {
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: 'gpt-4o-mini', // Ensure this model name is valid
+        model: 'gpt-4o-mini', // This model name is valid
         messages: [{ role: 'user', content: prompt }],
       },
       {
