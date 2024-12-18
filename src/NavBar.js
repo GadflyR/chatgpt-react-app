@@ -12,7 +12,7 @@ function NavBar({ children }) {
 
   return (
     <AppBar className="NavBar" position="static">
-      <Toolbar sx={{ justifyContent: 'center' }}>
+      <Toolbar>
         <Typography className='text' variant="h6">
           iBot Story Generator
         </Typography>
