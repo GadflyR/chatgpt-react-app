@@ -8,8 +8,10 @@ function GeneratedStoryPage() {
   const { stories } = location.state || {};
 
   const [selectedVoice, setSelectedVoice] = useState('en-US-JennyNeural');
+  const [selectedTranslationLanguage, setSelectedTranslationLanguage] = useState('Chinese');
   const [audioUrls, setAudioUrls] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [shadowLoading, setShadowLoading] = useState(false);
@@ -30,6 +32,7 @@ function GeneratedStoryPage() {
     setError('');
     setAudioUrls([]);
     setIsPlaying(false);
+    setIsPaused(false);
     setCurrentAudioIndex(0);
 
     try {
@@ -72,18 +75,19 @@ function GeneratedStoryPage() {
     setTranslatedStories([]);
     setAudioUrls([]);
     setIsPlaying(false);
+    setIsPaused(false);
     setCurrentAudioIndex(0);
 
     try {
       const translated = [];
-
+      // Construct the prompt based on the selected translation language.
+      // You can add logic here if the language name differs from how the prompt is written.
       for (let storyItem of stories) {
         const sentences = getSentences(storyItem.content);
         const translatedSentences = [];
 
         for (let sentence of sentences) {
-          // Translate each sentence to Chinese
-          const translationPrompt = `Translate the following sentence to Chinese:\n\n"${sentence}"\n\nProvide only the translated sentence.`;
+          const translationPrompt = `Translate the following sentence to ${selectedTranslationLanguage}:\n\n"${sentence}"\n\nProvide only the translated sentence.`;
           const translationRes = await axios.post(`${backendUrl}/api/chat`, {
             prompt: translationPrompt,
           });
@@ -114,6 +118,7 @@ function GeneratedStoryPage() {
     setError('');
     setAudioUrls([]);
     setIsPlaying(false);
+    setIsPaused(false);
     setCurrentAudioIndex(0);
 
     try {
@@ -155,6 +160,7 @@ function GeneratedStoryPage() {
     setError('');
     setAudioUrls([]);
     setIsPlaying(false);
+    setIsPaused(false);
     setCurrentAudioIndex(0);
 
     try {
@@ -199,6 +205,7 @@ function GeneratedStoryPage() {
   const handlePlayStories = () => {
     if (audioUrls.length > 0) {
       setIsPlaying(true);
+      setIsPaused(false);
       playAudioAtIndex(currentAudioIndex);
     }
   };
@@ -229,8 +236,10 @@ function GeneratedStoryPage() {
       });
 
       newAudio.onended = () => {
-        setCurrentAudioIndex(prevIndex => prevIndex + 1);
-        playAudioAtIndex(index + 1);
+        if (!isPaused) {
+          setCurrentAudioIndex(prevIndex => prevIndex + 1);
+          playAudioAtIndex(index + 1);
+        }
       };
     }
   };
@@ -242,7 +251,26 @@ function GeneratedStoryPage() {
       audioRef.current = null;
     }
     setIsPlaying(false);
+    setIsPaused(false);
     setCurrentAudioIndex(0);
+  };
+
+  const handlePauseResume = () => {
+    if (isPaused) {
+      // Resume
+      setIsPaused(false);
+      if (audioRef.current) {
+        audioRef.current.play().catch((err) => {
+          console.error("Error resuming audio:", err);
+        });
+      }
+    } else {
+      // Pause
+      setIsPaused(true);
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    }
   };
 
   return (
@@ -251,7 +279,7 @@ function GeneratedStoryPage() {
         <Typography variant="h4" component="h1" gutterBottom>
           Your Generated Story
         </Typography>
-        {stories.length > 0 &&
+        {stories && stories.length > 0 &&
           stories.map((storyItem) => (
             <Box key={storyItem.day} mt={2} p={2} bgcolor="#f5f5f5" borderRadius={4}>
               <Typography variant="h6">Day {storyItem.day}:</Typography>
@@ -288,9 +316,27 @@ function GeneratedStoryPage() {
           <MenuItem value="en-GB-RyanNeural">Ryan (UK)</MenuItem>
           <MenuItem value="en-AU-NatashaNeural">Natasha (AU)</MenuItem>
           <MenuItem value="en-IN-NeerjaNeural">Neerja (IN)</MenuItem>
-          {/* Add Chinese voices if available */}
           <MenuItem value="zh-CN-XiaoxiaoNeural">Xiaoxiao (Chinese)</MenuItem>
           <MenuItem value="zh-CN-YunxiNeural">Yunxi (Chinese)</MenuItem>
+        </TextField>
+
+        {/* Language selection for translation */}
+        <TextField
+          select
+          fullWidth
+          label="Select Translation Language"
+          value={selectedTranslationLanguage}
+          onChange={(e) => setSelectedTranslationLanguage(e.target.value)}
+          variant="outlined"
+          margin="normal"
+          required
+        >
+          <MenuItem value="Chinese">Chinese</MenuItem>
+          <MenuItem value="Spanish">Spanish</MenuItem>
+          <MenuItem value="French">French</MenuItem>
+          <MenuItem value="German">German</MenuItem>
+          <MenuItem value="Japanese">Japanese</MenuItem>
+          {/* Add more languages as needed */}
         </TextField>
 
         <Box display="flex" flexDirection="column" alignItems="flex-start" mt={2}>
@@ -300,7 +346,7 @@ function GeneratedStoryPage() {
             variant="contained"
             color="primary"
             onClick={handleReadAloud}
-            disabled={loading || stories.length === 0}
+            disabled={loading || !stories || stories.length === 0}
             fullWidth
             style={{ marginBottom: '16px' }}
           >
@@ -312,7 +358,7 @@ function GeneratedStoryPage() {
             variant="contained"
             color="secondary"
             onClick={handleTranslate}
-            disabled={translateLoading || stories.length === 0}
+            disabled={translateLoading || !stories || stories.length === 0}
             fullWidth
             style={{ marginBottom: '16px' }}
           >
@@ -338,13 +384,13 @@ function GeneratedStoryPage() {
             variant="contained"
             color="warning"
             onClick={handleShadowReading}
-            disabled={shadowLoading || stories.length === 0}
+            disabled={shadowLoading || !stories || stories.length === 0}
             fullWidth
           >
             {shadowLoading ? 'Generating Shadow Reading...' : 'Shadow Reading'}
           </Button>
 
-          {/* Play and Stop Buttons */}
+          {/* Play, Pause/Resume, and Stop Buttons */}
           <Box display="flex" alignItems="center" mt={2} width="100%">
             <Button
               variant="contained"
@@ -354,13 +400,23 @@ function GeneratedStoryPage() {
               fullWidth
               style={{ marginRight: '8px' }}
             >
-              Play Stories
+              Play
+            </Button>
+            <Button
+              variant="contained"
+              color="info"
+              onClick={handlePauseResume}
+              disabled={!isPlaying || audioUrls.length === 0}
+              fullWidth
+              style={{ marginRight: '8px' }}
+            >
+              {isPaused ? 'Resume' : 'Pause'}
             </Button>
             <Button
               variant="outlined"
               color="default"
               onClick={handleStopStories}
-              disabled={!isPlaying}
+              disabled={!isPlaying && !isPaused}
               fullWidth
             >
               Stop
