@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Box, Button, Typography, Container, CircularProgress, TextField, MenuItem } from '@mui/material';
 import axios from 'axios';
@@ -9,7 +9,7 @@ function GeneratedStoryPage() {
 
   const [selectedVoice, setSelectedVoice] = useState('en-US-JennyNeural');
   const [selectedTranslationLanguage, setSelectedTranslationLanguage] = useState('Chinese');
-  const [audioUrls, setAudioUrls] = useState([]);
+  const [audioSequence, setAudioSequence] = useState([]); // Array of {type:'audio', url:'...', pauseDuration: number}
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
@@ -18,25 +18,27 @@ function GeneratedStoryPage() {
   const [translateLoading, setTranslateLoading] = useState(false);
   const [error, setError] = useState('');
   const [translatedStories, setTranslatedStories] = useState([]);
+  
   const audioRef = useRef(null);
+  const pauseTimeoutIdRef = useRef(null);
+  const wasInPauseRef = useRef(false);
+  const currentPauseDurationRef = useRef(0);
+
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
 
-  // Utility function to split text into sentences using regex
   const getSentences = (text) => {
     return text.match(/[^\.!\?]+[\.!\?]+/g) || [];
   };
 
-  // Handler for "Read Aloud"
   const handleReadAloud = async () => {
     setLoading(true);
     setError('');
-    setAudioUrls([]);
+    setAudioSequence([]);
     setIsPlaying(false);
     setIsPaused(false);
     setCurrentAudioIndex(0);
 
     try {
-      // Generating audio for each story
       const audioPromises = stories.map(async (storyItem) => {
         const response = await axios.post(
           `${backendUrl}/api/tts`,
@@ -47,19 +49,16 @@ function GeneratedStoryPage() {
           { responseType: 'blob' }
         );
 
-        // Ensure response is a valid blob
         if (!response.data) {
           throw new Error("Failed to retrieve audio data from server.");
         }
 
-        // Create an object URL from the response data (Blob)
         const audioUrl = URL.createObjectURL(response.data);
-        return audioUrl;
+        return { type: 'audio', url: audioUrl, pauseDuration: 0 }; 
       });
 
-      // Resolve all audio URLs and set state
-      const urls = await Promise.all(audioPromises);
-      setAudioUrls(urls);
+      const sequence = await Promise.all(audioPromises);
+      setAudioSequence(sequence);
     } catch (err) {
       console.error('Error:', err.message);
       setError('Error generating speech audio.');
@@ -68,20 +67,17 @@ function GeneratedStoryPage() {
     }
   };
 
-  // Handler for "Translate Sentence-by-Sentence"
   const handleTranslate = async () => {
     setTranslateLoading(true);
     setError('');
     setTranslatedStories([]);
-    setAudioUrls([]);
+    setAudioSequence([]);
     setIsPlaying(false);
     setIsPaused(false);
     setCurrentAudioIndex(0);
 
     try {
       const translated = [];
-      // Construct the prompt based on the selected translation language.
-      // You can add logic here if the language name differs from how the prompt is written.
       for (let storyItem of stories) {
         const sentences = getSentences(storyItem.content);
         const translatedSentences = [];
@@ -112,17 +108,15 @@ function GeneratedStoryPage() {
     }
   };
 
-  // Handler to generate voice for translated stories
   const handleGenerateTranslatedVoice = async () => {
     setTranslateLoading(true);
     setError('');
-    setAudioUrls([]);
+    setAudioSequence([]);
     setIsPlaying(false);
     setIsPaused(false);
     setCurrentAudioIndex(0);
 
     try {
-      // Generating audio for each translated story
       const audioPromises = translatedStories.map(async (storyItem) => {
         const response = await axios.post(
           `${backendUrl}/api/tts`,
@@ -133,19 +127,16 @@ function GeneratedStoryPage() {
           { responseType: 'blob' }
         );
 
-        // Ensure response is a valid blob
         if (!response.data) {
           throw new Error("Failed to retrieve audio data from server.");
         }
 
-        // Create an object URL from the response data (Blob)
         const audioUrl = URL.createObjectURL(response.data);
-        return audioUrl;
+        return { type: 'audio', url: audioUrl, pauseDuration: 0 };
       });
 
-      // Resolve all audio URLs and set state
-      const urls = await Promise.all(audioPromises);
-      setAudioUrls(urls);
+      const sequence = await Promise.all(audioPromises);
+      setAudioSequence(sequence);
     } catch (err) {
       console.error('Error:', err.message);
       setError('Error generating translated speech audio.');
@@ -154,23 +145,24 @@ function GeneratedStoryPage() {
     }
   };
 
-  // Handler for "Shadow Reading"
+  // In shadow reading, we create a sequence of (audio, pause) pairs.
+  // The pause duration is based on sentence length (e.g., 200ms per word).
   const handleShadowReading = async () => {
     setShadowLoading(true);
     setError('');
-    setAudioUrls([]);
+    setAudioSequence([]);
     setIsPlaying(false);
     setIsPaused(false);
     setCurrentAudioIndex(0);
 
     try {
-      const shadowAudioUrls = [];
-
+      const sequence = [];
       for (let storyItem of stories) {
         const sentences = getSentences(storyItem.content);
-
         for (let sentence of sentences) {
-          // Generate audio for each sentence
+          const wordsCount = sentence.trim().split(/\s+/).length;
+          const pauseDuration = wordsCount * 200; // Adjust as needed
+
           const response = await axios.post(
             `${backendUrl}/api/tts`,
             {
@@ -185,14 +177,12 @@ function GeneratedStoryPage() {
           }
 
           const audioUrl = URL.createObjectURL(response.data);
-          shadowAudioUrls.push(audioUrl);
-
-          // Insert a placeholder for 10-second pause
-          shadowAudioUrls.push('PAUSE_10_SECONDS'); // Custom marker
+          // Each entry includes the audio and a calculated pause after it
+          sequence.push({ type: 'audio', url: audioUrl, pauseDuration });
         }
       }
 
-      setAudioUrls(shadowAudioUrls);
+      setAudioSequence(sequence);
     } catch (err) {
       console.error('Error:', err.message);
       setError('Error generating shadow reading audio.');
@@ -201,32 +191,31 @@ function GeneratedStoryPage() {
     }
   };
 
-  // Play audio sequences with handling for pauses
   const handlePlayStories = () => {
-    if (audioUrls.length > 0) {
+    if (audioSequence.length > 0) {
       setIsPlaying(true);
       setIsPaused(false);
-      playAudioAtIndex(currentAudioIndex);
+      setCurrentAudioIndex(0);
+      playNextSegment(0);
     }
   };
 
-  const playAudioAtIndex = (index) => {
-    if (index >= audioUrls.length) {
+  const playNextSegment = (index) => {
+    if (index >= audioSequence.length) {
       setIsPlaying(false);
       setCurrentAudioIndex(0);
       return;
     }
 
-    const currentUrl = audioUrls[index];
+    if (isPaused) {
+      // If paused, do nothing. We'll resume from here later.
+      return;
+    }
 
-    if (currentUrl === 'PAUSE_10_SECONDS') {
-      // Implement a 10-second pause
-      setTimeout(() => {
-        setCurrentAudioIndex(prevIndex => prevIndex + 1);
-        playAudioAtIndex(index + 1);
-      }, 10000); // 10,000 milliseconds = 10 seconds
-    } else {
-      const newAudio = new Audio(currentUrl);
+    const segment = audioSequence[index];
+    if (segment.type === 'audio') {
+      // Play the audio
+      const newAudio = new Audio(segment.url);
       audioRef.current = newAudio;
 
       newAudio.play().catch((error) => {
@@ -236,12 +225,52 @@ function GeneratedStoryPage() {
       });
 
       newAudio.onended = () => {
-        if (!isPaused) {
-          setCurrentAudioIndex(prevIndex => prevIndex + 1);
-          playAudioAtIndex(index + 1);
+        audioRef.current = null;
+        if (isPaused) {
+          // If paused right after ended, wait for resume
+          return;
         }
+
+        // After audio ends, we do a pause
+        doPauseThenNext(index, segment.pauseDuration);
       };
     }
+  };
+
+  const doPauseThenNext = (index, pauseDuration) => {
+    // If no pause needed, just move on
+    if (pauseDuration <= 0) {
+      const nextIndex = index + 1;
+      setCurrentAudioIndex(nextIndex);
+      playNextSegment(nextIndex);
+      return;
+    }
+
+    if (isPaused) {
+      // If paused right here, just return. We'll resume later.
+      wasInPauseRef.current = true;
+      currentPauseDurationRef.current = pauseDuration; // store the pause we needed
+      return;
+    }
+
+    // Not paused, set a timeout for the pause
+    wasInPauseRef.current = false;
+    currentPauseDurationRef.current = pauseDuration;
+
+    pauseTimeoutIdRef.current = setTimeout(() => {
+      pauseTimeoutIdRef.current = null;
+      if (isPaused) {
+        // If user paused during timeout:
+        wasInPauseRef.current = true;
+        // We'll handle resume later
+        return;
+      }
+
+      // Move to next index after pause
+      const nextIndex = index + 1;
+      setCurrentAudioIndex(nextIndex);
+      playNextSegment(nextIndex);
+    }, pauseDuration);
   };
 
   const handleStopStories = () => {
@@ -250,25 +279,57 @@ function GeneratedStoryPage() {
       audioRef.current.currentTime = 0;
       audioRef.current = null;
     }
+    if (pauseTimeoutIdRef.current) {
+      clearTimeout(pauseTimeoutIdRef.current);
+      pauseTimeoutIdRef.current = null;
+    }
     setIsPlaying(false);
     setIsPaused(false);
     setCurrentAudioIndex(0);
   };
 
   const handlePauseResume = () => {
-    if (isPaused) {
+    if (!isPaused) {
+      // Pause
+      setIsPaused(true);
+      // If audio is playing, pause it
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      // If we are in a pause timeout, clear it
+      if (pauseTimeoutIdRef.current) {
+        clearTimeout(pauseTimeoutIdRef.current);
+        pauseTimeoutIdRef.current = null;
+      }
+    } else {
       // Resume
       setIsPaused(false);
+      // If we have audioRef, resume it (if it ended, there's nothing to resume)
       if (audioRef.current) {
         audioRef.current.play().catch((err) => {
           console.error("Error resuming audio:", err);
         });
-      }
-    } else {
-      // Pause
-      setIsPaused(true);
-      if (audioRef.current) {
-        audioRef.current.pause();
+      } else {
+        // If we were in a pause, re-initiate that pause
+        if (wasInPauseRef.current && currentPauseDurationRef.current > 0) {
+          // Re-start the pause from scratch
+          pauseTimeoutIdRef.current = setTimeout(() => {
+            pauseTimeoutIdRef.current = null;
+            if (isPaused) {
+              // If paused again during the pause
+              wasInPauseRef.current = true;
+              return;
+            }
+            // Move to the next track
+            const nextIndex = currentAudioIndex + 1;
+            setCurrentAudioIndex(nextIndex);
+            playNextSegment(nextIndex);
+          }, currentPauseDurationRef.current);
+        } else {
+          // Otherwise, just continue
+          const nextIndex = currentAudioIndex;
+          playNextSegment(nextIndex);
+        }
       }
     }
   };
@@ -336,7 +397,6 @@ function GeneratedStoryPage() {
           <MenuItem value="French">French</MenuItem>
           <MenuItem value="German">German</MenuItem>
           <MenuItem value="Japanese">Japanese</MenuItem>
-          {/* Add more languages as needed */}
         </TextField>
 
         <Box display="flex" flexDirection="column" alignItems="flex-start" mt={2}>
@@ -396,7 +456,7 @@ function GeneratedStoryPage() {
               variant="contained"
               color="primary"
               onClick={handlePlayStories}
-              disabled={loading || translateLoading || shadowLoading || isPlaying || audioUrls.length === 0}
+              disabled={loading || translateLoading || shadowLoading || isPlaying || audioSequence.length === 0}
               fullWidth
               style={{ marginRight: '8px' }}
             >
@@ -406,7 +466,7 @@ function GeneratedStoryPage() {
               variant="contained"
               color="info"
               onClick={handlePauseResume}
-              disabled={!isPlaying || audioUrls.length === 0}
+              disabled={!isPlaying && !isPaused}
               fullWidth
               style={{ marginRight: '8px' }}
             >

@@ -11,14 +11,11 @@ function NavBar({ children }) {
   const { currentUser } = useAuth();
 
   return (
-    <AppBar className="NavBar">
-      <Toolbar>
-        <Typography className='text' variant="h6" style={{ flexGrow: 1, marginLeft: '16px' }}>
+    <AppBar className="NavBar" position="static">
+      <Toolbar sx={{ justifyContent: 'center' }}>
+        <Typography className='text' variant="h6">
           iBot Story Generator
         </Typography>
-        <Button className='text' color="inherit" component={Link} to="/">
-          Home
-        </Button>
         {currentUser && (
           <>
             <Button className='text' color="inherit" component={Link} to="/chat">
