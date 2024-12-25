@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { db } from './firebase'; // Import Firestore instance
+import { db } from './firebase'; // Firestore instance
 import { collection, getDocs } from 'firebase/firestore';
 import {
   Typography,
@@ -9,10 +9,9 @@ import {
   CircularProgress,
   Card,
   CardActionArea,
-  CardContent,
+  CardContent
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom'; // for navigation
-import './App.css';
+import { useNavigate } from 'react-router-dom';
 
 function HistoryPage() {
   const { currentUser } = useAuth();
@@ -25,6 +24,7 @@ function HistoryPage() {
     const fetchUserStories = async () => {
       if (currentUser) {
         try {
+          // For each user, we have a sub-collection "generatedStories" in Firestore.
           const userStoryCollection = collection(
             db,
             'users',
@@ -35,14 +35,14 @@ function HistoryPage() {
 
           const fetchedStories = [];
           userStoriesSnapshot.forEach((doc) => {
-            // Each doc might contain fields like: { createdAt, stories: [ {day, content}, ... ] }
+            // doc.data() might have { content, day, timestamp }
             fetchedStories.push({ id: doc.id, ...doc.data() });
           });
 
           setStories(fetchedStories);
         } catch (err) {
-          console.error('Error fetching stories:', err);
-          setError('Error fetching user stories.');
+          console.error("Error fetching stories:", err);
+          setError("Error fetching user stories.");
         } finally {
           setLoading(false);
         }
@@ -54,6 +54,20 @@ function HistoryPage() {
     fetchUserStories();
   }, [currentUser]);
 
+  // Helper: format the timestamp for display
+  const formatTimestamp = (ts) => {
+    // If it's a Firestore Timestamp object:
+    if (ts && ts.toDate) {
+      return ts.toDate().toLocaleString();
+    }
+    // If it's a string or Date:
+    if (typeof ts === 'string' || ts instanceof Date) {
+      return new Date(ts).toLocaleString();
+    }
+    // fallback
+    return 'Unknown date';
+  };
+
   if (loading) {
     return (
       <Container maxWidth="md">
@@ -63,14 +77,6 @@ function HistoryPage() {
       </Container>
     );
   }
-
-  // Helper to format date (if needed)
-  const formatDate = (timestamp) => {
-    if (!timestamp) return 'Unknown Date';
-    // If it’s a Firestore Timestamp object, convert to JS Date
-    const dateObj = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return dateObj.toLocaleString(); // or any date format you prefer
-  };
 
   return (
     <Container maxWidth="md" style={{ marginTop: '100px' }}>
@@ -88,35 +94,33 @@ function HistoryPage() {
         )}
 
         {stories.length > 0 ? (
-          stories.map((storyItem, index) => {
-            // Suppose storyItem has a field `createdAt` and an array `stories`:
-            // storyItem.stories = [ { day: 1, content: '...' }, { day: 2, content: '...' } ]
-            const day1Content = storyItem.stories?.[0]?.content || '';
-            const snippet = day1Content.substring(0, 100); // first 100 chars
+          stories.map((storyItem) => {
+            // e.g. storyItem = { id, content, day, timestamp }
+            const { id, content = '', day, timestamp } = storyItem;
+            // We'll show only first 100 chars
+            const snippet = content.substring(0, 100);
 
             return (
-              <Card
-                key={storyItem.id}
-                variant="outlined"
-                style={{ marginBottom: '16px' }}
-              >
+              <Card key={id} variant="outlined" style={{ marginBottom: '16px' }}>
                 <CardActionArea
                   onClick={() =>
                     navigate('/generated-story', {
                       state: {
-                        stories: storyItem.stories,
-                        // Any other data you want to pass along
+                        // Pass the full data to the next page
+                        content,
+                        day,
+                        timestamp,
                       },
                     })
                   }
                 >
                   <CardContent>
                     <Typography variant="subtitle2" color="textSecondary">
-                      {`Generated on: ${formatDate(storyItem.createdAt)}`}
+                      Generated on: {formatTimestamp(timestamp)}
                     </Typography>
                     <Typography variant="body1" style={{ marginTop: 8 }}>
                       {snippet}
-                      {day1Content.length > 100 && '...'} {/* Ellipsis if longer than 100 */}
+                      {content.length > 100 && '...'}
                     </Typography>
                   </CardContent>
                 </CardActionArea>
@@ -124,9 +128,7 @@ function HistoryPage() {
             );
           })
         ) : (
-          <Typography variant="body1">
-            No stories generated yet.
-          </Typography>
+          <Typography variant="body1">No stories generated yet.</Typography>
         )}
       </Box>
     </Container>
