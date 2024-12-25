@@ -54,6 +54,7 @@ const ALL_AVAILABLE_VOICES = [
 
 function GeneratedStoryPage() {
   const location = useLocation();
+  // We expect an array named "stories"
   const { stories } = location.state || {};
   const [currentDayIndex, setCurrentDayIndex] = useState(0);
 
@@ -142,9 +143,7 @@ function GeneratedStoryPage() {
     stopPlayback();
     setError('');
     setTranslatedText('');
-    // Note: we do NOT clear voiceSteps or ttsCache here,
-    // because we might want to reuse previously generated audio across days if desired.
-    // If you prefer to clear them, you can.
+    // We do NOT clear voiceSteps/ttsCache so the user can reuse them if they want
   };
 
   // Separate function to stop playback
@@ -168,8 +167,7 @@ function GeneratedStoryPage() {
    * Build a cache key for each “action type”
    */
   const buildCacheKey = (action, day, language) => {
-    // action can be READ_ALOUD, TRANSLATED, SHADOW
-    // e.g. "TRANSLATED:3:Chinese"
+    // e.g. "READ_ALOUD:3", or "TRANSLATED:3:Chinese", "SHADOW:3"
     return language
       ? `${action}:${day}:${language}`
       : `${action}:${day}`;
@@ -216,9 +214,6 @@ function GeneratedStoryPage() {
 
   /**
    * ========== READ ALOUD (ONE DAY) ==========
-   * If user clicks “Read Aloud” for day X, we build a key like "READ_ALOUD:3".
-   * If it's not in cache or was error, generate it. Otherwise reuse.
-   * Then we add a step with that key.
    */
   const handleReadAloud = async () => {
     if (!stories || !stories[currentDayIndex]) return;
@@ -228,16 +223,16 @@ function GeneratedStoryPage() {
     const dayItem = stories[currentDayIndex];
     const cacheKey = buildCacheKey('READ_ALOUD', dayItem.day);
 
-    // If we have it in cache and it's either pending or done, skip re-generation
+    // If we have it in cache and it's pending/done, skip re-generation
     const existing = ttsCache[cacheKey];
     if (existing && (existing.status === 'pending' || existing.status === 'done')) {
-      // We won't regenerate, just add the step referencing the same audio
+      // Just add a new step referencing the same audio
       addVoiceStep(`Read Aloud (Day ${dayItem.day})`, cacheKey);
       setLoading(false);
       return;
     }
 
-    // Otherwise, create a new entry with status pending
+    // Otherwise, create a new entry with status = 'pending'
     setTtsCache((prev) => ({
       ...prev,
       [cacheKey]: { status: 'pending', sequence: null },
@@ -249,7 +244,7 @@ function GeneratedStoryPage() {
       const text = `Day ${dayItem.day}: ${dayItem.content}`;
       const sequence = await generateTtsSequence(text, selectedVoice);
 
-      // Mark as done
+      // Mark done
       setTtsCache((prev) => ({
         ...prev,
         [cacheKey]: { status: 'done', sequence },
@@ -308,9 +303,8 @@ function GeneratedStoryPage() {
     setError('');
 
     const dayItem = stories[currentDayIndex];
-    // Pick the appropriate voice for the selectedTranslationLanguage
     const autoVoice =
-      TRANSLATION_VOICE_MAP[selectedTranslationLanguage] || 'zh-CN-XiaoxiaoNeural'; // default fallback
+      TRANSLATION_VOICE_MAP[selectedTranslationLanguage] || 'zh-CN-XiaoxiaoNeural';
 
     const cacheKey = buildCacheKey(
       'TRANSLATED',
@@ -318,7 +312,6 @@ function GeneratedStoryPage() {
       selectedTranslationLanguage
     );
 
-    // If we have it in cache and it's pending or done, reuse
     const existing = ttsCache[cacheKey];
     if (existing && (existing.status === 'pending' || existing.status === 'done')) {
       addVoiceStep(
@@ -329,7 +322,6 @@ function GeneratedStoryPage() {
       return;
     }
 
-    // Otherwise, create new entry
     setTtsCache((prev) => ({
       ...prev,
       [cacheKey]: { status: 'pending', sequence: null },
@@ -371,13 +363,11 @@ function GeneratedStoryPage() {
 
     const existing = ttsCache[cacheKey];
     if (existing && (existing.status === 'pending' || existing.status === 'done')) {
-      // Reuse
       addVoiceStep(`Shadow Reading (Day ${dayItem.day})`, cacheKey);
       setShadowLoading(false);
       return;
     }
 
-    // Otherwise new
     setTtsCache((prev) => ({
       ...prev,
       [cacheKey]: { status: 'pending', sequence: null },
@@ -407,7 +397,7 @@ function GeneratedStoryPage() {
   };
 
   /**
-   * ========== ADDING STEPS TO voiceSteps ==========
+   * ========== ADD STEPS TO voiceSteps ==========
    */
   const addVoiceStep = (label, cacheKey) => {
     const newStep = {
@@ -420,7 +410,6 @@ function GeneratedStoryPage() {
 
   /**
    * ========== DELETE A STEP ==========
-   * This only removes the step from voiceSteps, not from the TTS cache.
    */
   const handleDeleteStep = (stepId) => {
     setVoiceSteps((prev) => prev.filter((s) => s.id !== stepId));
@@ -428,9 +417,6 @@ function GeneratedStoryPage() {
 
   /**
    * ========== PLAY/PAUSE/STOP (ALL STEPS) ==========
-   * If user clicks "Play," we gather only the steps that have status === 'done' in the order they appear.
-   * If a step is 'pending', we skip it. If it finishes in the background while playing, we won't auto-include it
-   * unless we implement more advanced logic. For now, we keep it simple.
    */
   const handlePlayAll = () => {
     stopPlayback(); // reset previous playback
@@ -561,12 +547,13 @@ function GeneratedStoryPage() {
     }
   };
 
-  // Helper: Are there any steps with status === 'done'?
+  // Are there any steps with status === 'done'?
   const hasReadyAudio = voiceSteps.some((step) => {
     const entry = ttsCache[step.cacheKey];
     return entry && entry.status === 'done';
   });
 
+  // If no stories passed or stories is empty, show error
   if (!stories || stories.length === 0) {
     return (
       <Container maxWidth="md" style={{ marginTop: '75px' }}>
@@ -586,7 +573,7 @@ function GeneratedStoryPage() {
           Your Generated Story (Day {currentStory.day})
         </Typography>
 
-        {/** TABLE OF CONTENTS / DAY NAVIGATION */}
+        {/* ======== TABLE OF CONTENTS / DAY NAVIGATION ======== */}
         <Box mb={2} display="flex" alignItems="center">
           <Typography variant="body1" style={{ marginRight: '8px' }}>
             Jump to Day:
@@ -625,7 +612,7 @@ function GeneratedStoryPage() {
           </Button>
         </Box>
 
-        {/** CURRENT DAY CONTENT */}
+        {/* ======== CURRENT DAY CONTENT ======== */}
         <Box mt={2} p={2} bgcolor="#f5f5f5" borderRadius={4}>
           <Typography variant="h6">Day {currentStory.day}:</Typography>
           <Typography variant="body1" style={{ whiteSpace: 'pre-line' }}>
@@ -633,7 +620,7 @@ function GeneratedStoryPage() {
           </Typography>
         </Box>
 
-        {/** If we have a translation for this day, display it */}
+        {/* If we have a translation for this day, display it */}
         {translatedText && (
           <Box mt={2} p={2} bgcolor="#e8f5e9" borderRadius={4}>
             <Typography variant="h6">
@@ -645,7 +632,7 @@ function GeneratedStoryPage() {
           </Box>
         )}
 
-        {/** VOICE SELECTION (For normal read/shadow) */}
+        {/* ======== VOICE SELECTION (For normal read/shadow) ======== */}
         <TextField
           select
           fullWidth
@@ -663,10 +650,9 @@ function GeneratedStoryPage() {
           ))}
         </TextField>
 
-        {/** ACTION BUTTONS */}
+        {/* ======== ACTION BUTTONS ======== */}
         <Box display="flex" flexDirection="column" alignItems="flex-start" mt={2}>
-
-          {/** READ ALOUD */}
+          {/* Read Aloud */}
           <Button
             variant="contained"
             color="primary"
@@ -678,7 +664,7 @@ function GeneratedStoryPage() {
             {loading ? 'Generating Voice...' : 'Read Aloud (This Day)'}
           </Button>
 
-          {/** TRANSLATION + MENU */}
+          {/* Translate + Language Menu */}
           <ButtonGroup
             variant="contained"
             color="secondary"
@@ -707,7 +693,7 @@ function GeneratedStoryPage() {
             <MenuItem onClick={() => handleTranslateMenuClose('Japanese')}>Japanese</MenuItem>
           </Menu>
 
-          {/** GENERATE TRANSLATED VOICE */}
+          {/* Generate Translated Voice */}
           {translatedText && (
             <Button
               variant="contained"
@@ -723,7 +709,7 @@ function GeneratedStoryPage() {
             </Button>
           )}
 
-          {/** SHADOW READING */}
+          {/* Shadow Reading */}
           <Button
             variant="contained"
             color="warning"
@@ -734,7 +720,7 @@ function GeneratedStoryPage() {
             {shadowLoading ? 'Generating Shadow Reading...' : 'Shadow Reading (This Day)'}
           </Button>
 
-          {/** PLAY/PAUSE/STOP FOR ALL STEPS */}
+          {/* PLAY/PAUSE/STOP for All Steps */}
           <Box display="flex" alignItems="center" mt={2} width="100%">
             <Button
               variant="contained"
@@ -768,7 +754,7 @@ function GeneratedStoryPage() {
           </Box>
         </Box>
 
-        {/** LIST OF STEPS (in order) */}
+        {/* ======== LIST OF STEPS (in order) ======== */}
         {voiceSteps.length > 0 && (
           <Box mt={4} p={2} bgcolor="#fff8e1" borderRadius={4}>
             <Typography variant="h6" gutterBottom>
@@ -809,7 +795,7 @@ function GeneratedStoryPage() {
           </Box>
         )}
 
-        {/** LOADING INDICATORS & ERRORS */}
+        {/* ======== LOADING INDICATORS & ERRORS ======== */}
         {(loading || translateLoading || shadowLoading) && (
           <Box mt={2}>
             <CircularProgress />
@@ -829,3 +815,4 @@ function GeneratedStoryPage() {
 }
 
 export default GeneratedStoryPage;
+

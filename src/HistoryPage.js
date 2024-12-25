@@ -104,12 +104,16 @@ function HistoryPage() {
               <Card key={id} variant="outlined" style={{ marginBottom: '16px' }}>
                 <CardActionArea
                   onClick={() =>
+                    // Pass an array named "stories" to GeneratedStoryPage
                     navigate('/generated-story', {
                       state: {
-                        // Pass the full data to the next page
-                        content,
-                        day,
-                        timestamp,
+                        stories: [
+                          {
+                            day,
+                            content,
+                            timestamp,
+                          },
+                        ],
                       },
                     })
                   }
