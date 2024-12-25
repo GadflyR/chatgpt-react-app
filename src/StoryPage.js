@@ -20,8 +20,70 @@ function StoryPage() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
-  // ----------------- State -----------------
-  // All fields are optional
+  // --------------------- SUGGESTION ARRAYS ---------------------
+  // Only for text fields
+  const titleSuggestions = [
+    "A Brave Adventure",
+    "Midnight in the Woods",
+    "The Lost City",
+    "Journey into Twilight",
+    "Shadows of the Past",
+  ];
+  const timeSuggestions = [
+    "medieval times",
+    "the future",
+    "the roaring 1920s",
+    "prehistoric era",
+    "the year 3000",
+  ];
+  const placeSuggestions = [
+    "a small village",
+    "outer space",
+    "an underwater city",
+    "the Sahara Desert",
+    "a bustling metropolis",
+  ];
+  const characterNameSuggestions = [
+    "Alice",
+    "John",
+    "Kai",
+    "Maria",
+    "Luca",
+  ];
+  const protagonistSuggestions = [
+    "a courageous knight",
+    "a curious child",
+    "an eccentric detective",
+    "a timid librarian",
+    "a fearless astronaut",
+  ];
+  const mainStorylineSuggestions = [
+    "A quest to find the lost treasure",
+    "Stopping a sinister villain",
+    "A journey of self-discovery",
+    "Reuniting two estranged worlds",
+    "Unraveling a family secret",
+  ];
+  const storyLengthSuggestions = [
+    "300-500",
+    "500-700",
+    "800-1000",
+    "250-400",
+    "1000-1200",
+  ];
+
+  // --------------------- INDEX STATES ---------------------
+  // Only for text fields
+  const [titleIndex, setTitleIndex] = useState(0);
+  const [timeIndex, setTimeIndex] = useState(0);
+  const [placeIndex, setPlaceIndex] = useState(0);
+  const [characterNameIndex, setCharacterNameIndex] = useState(0);
+  const [protagonistIndex, setProtagonistIndex] = useState(0);
+  const [mainStorylineIndex, setMainStorylineIndex] = useState(0);
+  const [storyLengthIndex, setStoryLengthIndex] = useState(0);
+
+  // --------------------- FIELD STATES ---------------------
+  // All fields optional:
   const [storyLanguage, setStoryLanguage] = useState(
     () => localStorage.getItem('storyLanguage') || ''
   );
@@ -29,22 +91,24 @@ function StoryPage() {
     const savedNumDays = localStorage.getItem('numDays');
     return savedNumDays ? parseInt(savedNumDays, 10) : '';
   });
-
   const [languageDifficulty, setLanguageDifficulty] = useState(
     () => localStorage.getItem('languageDifficulty') || ''
   );
-  const [storyWordLimit, setStoryWordLimit] = useState(
-    () => localStorage.getItem('storyWordLimit') || ''
+  const [storyLength, setStoryLength] = useState(
+    () => localStorage.getItem('storyLength') || ''
   );
-
   const [title, setTitle] = useState(
     () => localStorage.getItem('title') || ''
   );
   const [storyType, setStoryType] = useState(
     () => localStorage.getItem('storyType') || ''
   );
-  const [time, setTime] = useState(() => localStorage.getItem('time') || '');
-  const [place, setPlace] = useState(() => localStorage.getItem('place') || '');
+  const [time, setTime] = useState(
+    () => localStorage.getItem('time') || ''
+  );
+  const [place, setPlace] = useState(
+    () => localStorage.getItem('place') || ''
+  );
   const [characterName, setCharacterName] = useState(
     () => localStorage.getItem('characterName') || ''
   );
@@ -55,16 +119,17 @@ function StoryPage() {
     () => localStorage.getItem('mainStoryline') || ''
   );
 
-  // Loading/generation states
+  // --------------------- LOADING / ERROR ---------------------
   const [loading, setLoading] = useState(false);
   const [currentDay, setCurrentDay] = useState(0);
   const [error, setError] = useState('');
 
+  // --------------------- BACKEND URL ---------------------
   const backendUrl =
     process.env.REACT_APP_BACKEND_URL ||
     'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
 
-  // ----------------- useEffects to store in localStorage -----------------
+  // --------------------- LOCAL STORAGE EFFECTS ---------------------
   useEffect(() => {
     localStorage.setItem('storyLanguage', storyLanguage);
   }, [storyLanguage]);
@@ -78,8 +143,8 @@ function StoryPage() {
   }, [languageDifficulty]);
 
   useEffect(() => {
-    localStorage.setItem('storyWordLimit', storyWordLimit);
-  }, [storyWordLimit]);
+    localStorage.setItem('storyLength', storyLength);
+  }, [storyLength]);
 
   useEffect(() => {
     localStorage.setItem('title', title);
@@ -109,7 +174,68 @@ function StoryPage() {
     localStorage.setItem('mainStoryline', mainStoryline);
   }, [mainStoryline]);
 
-  // ----------------- Story Generation -----------------
+  // --------------------- KEYDOWN FOR SUGGESTIONS ---------------------
+  const handleSuggestionKeyDown = (e, field) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+
+      switch (field) {
+        case 'title':
+          setTitle(titleSuggestions[titleIndex]);
+          setTitleIndex((prev) => (prev + 1) % titleSuggestions.length);
+          break;
+        case 'time':
+          setTime(timeSuggestions[timeIndex]);
+          setTimeIndex((prev) => (prev + 1) % timeSuggestions.length);
+          break;
+        case 'place':
+          setPlace(placeSuggestions[placeIndex]);
+          setPlaceIndex((prev) => (prev + 1) % placeSuggestions.length);
+          break;
+        case 'characterName':
+          setCharacterName(characterNameSuggestions[characterNameIndex]);
+          setCharacterNameIndex((prev) => (prev + 1) % characterNameSuggestions.length);
+          break;
+        case 'protagonist':
+          setProtagonist(protagonistSuggestions[protagonistIndex]);
+          setProtagonistIndex((prev) => (prev + 1) % protagonistSuggestions.length);
+          break;
+        case 'mainStoryline':
+          setMainStoryline(mainStorylineSuggestions[mainStorylineIndex]);
+          setMainStorylineIndex((prev) => (prev + 1) % mainStorylineSuggestions.length);
+          break;
+        case 'storyLength':
+          setStoryLength(storyLengthSuggestions[storyLengthIndex]);
+          setStoryLengthIndex((prev) => (prev + 1) % storyLengthSuggestions.length);
+          break;
+        default:
+          break;
+      }
+    }
+  };
+
+  // --------------------- STORY LENGTH PARSER ---------------------
+  const getLengthInstruction = (input) => {
+    if (!input.trim()) {
+      return "Keep it around 300 words.";
+    }
+    if (input.includes("-")) {
+      // example "300-500"
+      const [minRaw, maxRaw] = input.split("-").map((str) => str.trim());
+      const minVal = parseInt(minRaw, 10);
+      const maxVal = parseInt(maxRaw, 10);
+      if (!isNaN(minVal) && !isNaN(maxVal)) {
+        return `Try to keep it between ${minVal} and ${maxVal} words.`;
+      } else {
+        // fallback
+        return `Try to keep it around ${input} words.`;
+      }
+    }
+    // single number
+    return `Try to keep it around ${input.trim()} words.`;
+  };
+
+  // --------------------- STORY GENERATION ---------------------
   const handleGenerateStory = async (e) => {
     e.preventDefault();
 
@@ -171,12 +297,8 @@ function StoryPage() {
             prompt += ` with the main storyline focusing on ${mainStoryline}`;
           }
 
-          // Word limit
-          if (storyWordLimit.trim()) {
-            prompt += `. Keep it under ${storyWordLimit} words.`;
-          } else {
-            prompt += '. Keep it around 300 words.';
-          }
+          // Story length
+          prompt += '. ' + getLengthInstruction(storyLength);
         } else {
           // Subsequent Days
           if (previousStory.length > 1500) {
@@ -188,7 +310,7 @@ function StoryPage() {
             previousStory = summaryRes.data.choices[0].message.content.trim();
           }
 
-          prompt = `Continue the following story into Day ${day}:\n\n${previousStory}\n\n`;
+          prompt += `Continue the following story into Day ${day}:\n\n${previousStory}\n\n`;
 
           // Language / Difficulty continuing
           if (storyLanguage.trim() || languageDifficulty.trim()) {
@@ -199,15 +321,11 @@ function StoryPage() {
             if (storyLanguage.trim()) {
               prompt += ` in ${storyLanguage.toLowerCase()}`;
             }
-            prompt += '.';
+            prompt += '. ';
           }
 
-          // Word limit
-          if (storyWordLimit.trim()) {
-            prompt += ` Keep it under ${storyWordLimit} words.`;
-          } else {
-            prompt += ' Keep it around 300 words.';
-          }
+          // Story length again
+          prompt += getLengthInstruction(storyLength);
         }
 
         // Call the backend
@@ -240,7 +358,7 @@ function StoryPage() {
         'storyLanguage',
         'numDays',
         'languageDifficulty',
-        'storyWordLimit',
+        'storyLength',
         'title',
         'storyType',
         'time',
@@ -250,7 +368,7 @@ function StoryPage() {
         'mainStoryline',
       ].forEach((key) => localStorage.removeItem(key));
 
-      // Go to generated stories page
+      // Navigate to GeneratedStoryPage
       navigate('/generated-story', {
         state: {
           stories: generatedStories,
@@ -269,7 +387,7 @@ function StoryPage() {
     }
   };
 
-  // ----------------- Render -----------------
+  // --------------------- RENDER ---------------------
   return (
     <Container maxWidth="md" sx={{ marginTop: '100px' }}>
       <Box mt={4}>
@@ -277,21 +395,18 @@ function StoryPage() {
         <div className="Subtitle">Generate a Story Series</div>
 
         <Box component="form" onSubmit={handleGenerateStory} mb={2}>
-          {/* Block 1: Basic Options */}
+          {/* BASIC OPTIONS (Dark Grey) */}
           <Box
             p={3}
             mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#e0e0e0' }} // Darker grey for Basic Options
+            sx={{ backgroundColor: '#e0e0e0' }}
           >
             <Typography variant="h6" gutterBottom>
               Basic Options
             </Typography>
-            <Box
-              display="flex"
-              flexDirection={{ xs: 'column', md: 'row' }}
-              gap={3}
-            >
+            <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
+              {/* Story Language (Select) */}
               <TextField
                 fullWidth
                 select
@@ -301,6 +416,7 @@ function StoryPage() {
                 variant="outlined"
                 margin="normal"
               >
+                <MenuItem value="">None</MenuItem> {/* Optional: Allow clearing the field */}
                 <MenuItem value="English">English</MenuItem>
                 <MenuItem value="Spanish">Spanish</MenuItem>
                 <MenuItem value="Chinese">Chinese</MenuItem>
@@ -310,6 +426,7 @@ function StoryPage() {
                 {/* Add more languages as needed */}
               </TextField>
 
+              {/* Number of Days (Number Input) */}
               <TextField
                 fullWidth
                 label="Number of Days"
@@ -323,17 +440,17 @@ function StoryPage() {
             </Box>
           </Box>
 
-          {/* Optional: */}
+          {/* OPTIONAL */}
           <Typography variant="h6" gutterBottom>
             Optional:
           </Typography>
 
-          {/* Block 2: Story Setup (Merged Story Basics & Setting) */}
+          {/* STORY SETUP (Light Grey) */}
           <Box
             p={3}
             mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#f5f5f5' }} // Lighter grey for Optional Blocks
+            sx={{ backgroundColor: '#f5f5f5' }}
           >
             <Typography variant="h6" gutterBottom>
               Story Setup
@@ -344,16 +461,19 @@ function StoryPage() {
               gap={3}
               mb={3}
             >
+              {/* Title (Text) with onKeyDown for suggestions */}
               <TextField
                 fullWidth
                 label="Title"
                 placeholder="e.g., The Brave Adventurer"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => handleSuggestionKeyDown(e, 'title')}
                 variant="outlined"
                 margin="normal"
               />
 
+              {/* Story Type (Select) */}
               <TextField
                 fullWidth
                 select
@@ -363,86 +483,83 @@ function StoryPage() {
                 variant="outlined"
                 margin="normal"
               >
-                <MenuItem value="Adventure">Adventure</MenuItem>
-                <MenuItem value="Mystery">Mystery</MenuItem>
-                <MenuItem value="Romance">Romance</MenuItem>
-                <MenuItem value="Fantasy">Fantasy</MenuItem>
-                <MenuItem value="Science Fiction">Science Fiction</MenuItem>
-                <MenuItem value="Horror">Horror</MenuItem>
-                {/* Add more types as needed */}
+                <MenuItem value="">None</MenuItem> {/* Optional: Allow clearing the field */}
+                {storyTypeSuggestions.map((type) => (
+                  <MenuItem key={type} value={type}>{type}</MenuItem>
+                ))}
               </TextField>
             </Box>
 
-            <Box
-              display="flex"
-              flexDirection={{ xs: 'column', md: 'row' }}
-              gap={3}
-            >
+            <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
+              {/* Time (Text) with onKeyDown */}
               <TextField
                 fullWidth
                 label="Time"
                 placeholder="e.g., medieval times, the future"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
+                onKeyDown={(e) => handleSuggestionKeyDown(e, 'time')}
                 variant="outlined"
                 margin="normal"
               />
 
+              {/* Place (Text) with onKeyDown */}
               <TextField
                 fullWidth
                 label="Place"
                 placeholder="e.g., a small village, outer space"
                 value={place}
                 onChange={(e) => setPlace(e.target.value)}
+                onKeyDown={(e) => handleSuggestionKeyDown(e, 'place')}
                 variant="outlined"
                 margin="normal"
               />
             </Box>
           </Box>
 
-          {/* Block 3: Main Character */}
+          {/* MAIN CHARACTER (Light Grey) */}
           <Box
             p={3}
             mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#f5f5f5' }} // Lighter grey
+            sx={{ backgroundColor: '#f5f5f5' }}
           >
             <Typography variant="h6" gutterBottom>
               Main Character
             </Typography>
-            <Box
-              display="flex"
-              flexDirection={{ xs: 'column', md: 'row' }}
-              gap={3}
-            >
+            <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
+              {/* Character Name (Text) with onKeyDown */}
               <TextField
                 fullWidth
                 label="Character Name"
                 placeholder="e.g., Alice, John"
                 value={characterName}
                 onChange={(e) => setCharacterName(e.target.value)}
+                onKeyDown={(e) => handleSuggestionKeyDown(e, 'characterName')}
                 variant="outlined"
                 margin="normal"
               />
 
+              {/* Protagonist Characteristics (Text) with onKeyDown */}
               <TextField
                 fullWidth
                 label="Protagonist Characteristics"
                 placeholder="e.g., a courageous knight, a curious child"
                 value={protagonist}
                 onChange={(e) => setProtagonist(e.target.value)}
+                onKeyDown={(e) => handleSuggestionKeyDown(e, 'protagonist')}
                 variant="outlined"
                 margin="normal"
               />
             </Box>
           </Box>
 
-          {/* Block 4: Main Storyline */}
+          {/* MAIN STORYLINE (Light Grey) */}
           <Box
             p={3}
             mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#f5f5f5' }} // Lighter grey
+            sx={{ backgroundColor: '#f5f5f5' }}
           >
             <Typography variant="h6" gutterBottom>
               Main Storyline
@@ -453,26 +570,24 @@ function StoryPage() {
               placeholder="e.g., A quest to find the lost treasure"
               value={mainStoryline}
               onChange={(e) => setMainStoryline(e.target.value)}
+              onKeyDown={(e) => handleSuggestionKeyDown(e, 'mainStoryline')}
               variant="outlined"
               margin="normal"
             />
           </Box>
 
-          {/* Block 5: Difficulty & Word Limit */}
+          {/* DIFFICULTY & STORY LENGTH (Light Grey) */}
           <Box
             p={3}
             mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#f5f5f5' }} // Lighter grey
+            sx={{ backgroundColor: '#f5f5f5' }}
           >
             <Typography variant="h6" gutterBottom>
-              Difficulty & Word Limit
+              Difficulty & Story Length
             </Typography>
-            <Box
-              display="flex"
-              flexDirection={{ xs: 'column', md: 'row' }}
-              gap={3}
-            >
+            <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
+              {/* Language Difficulty (Select) */}
               <TextField
                 fullWidth
                 select
@@ -482,26 +597,27 @@ function StoryPage() {
                 variant="outlined"
                 margin="normal"
               >
-                <MenuItem value="Easy">Easy</MenuItem>
-                <MenuItem value="Intermediate">Intermediate</MenuItem>
-                <MenuItem value="Advanced">Advanced</MenuItem>
+                <MenuItem value="">None</MenuItem> {/* Optional: Allow clearing the field */}
+                {languageDifficultySuggestions.map((diff) => (
+                  <MenuItem key={diff} value={diff}>{diff}</MenuItem>
+                ))}
               </TextField>
 
+              {/* Story Length (Text) with onKeyDown */}
               <TextField
                 fullWidth
-                label="Story Word Limit"
-                placeholder="e.g. 500"
-                type="number"
-                value={storyWordLimit}
-                onChange={(e) => setStoryWordLimit(e.target.value)}
+                label="Story Length"
+                placeholder="e.g. 300-500"
+                value={storyLength}
+                onChange={(e) => setStoryLength(e.target.value)}
+                onKeyDown={(e) => handleSuggestionKeyDown(e, 'storyLength')}
                 variant="outlined"
                 margin="normal"
-                inputProps={{ min: 1 }}
               />
             </Box>
           </Box>
 
-          {/* Submit Button */}
+          {/* SUBMIT BUTTON */}
           <Box display="flex" alignItems="center" mt={2}>
             <Button
               type="submit"
@@ -520,7 +636,7 @@ function StoryPage() {
           </Box>
         </Box>
 
-        {/* Error Message */}
+        {/* ERROR MESSAGE */}
         {error && (
           <Box mt={2} p={2} bgcolor="#ffebee" borderRadius={2}>
             <Typography color="error" variant="body1">
