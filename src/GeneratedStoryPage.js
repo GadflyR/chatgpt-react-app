@@ -13,8 +13,12 @@ import {
   MenuItem as TextFieldMenuItem,
   Select,
   FormControl,
-  InputLabel
+  InputLabel,
+  List,
+  ListItem,
+  IconButton
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 import axios from 'axios';
 
 function GeneratedStoryPage() {
@@ -24,27 +28,37 @@ function GeneratedStoryPage() {
   // Keep track of which day index is currently displayed
   const [currentDayIndex, setCurrentDayIndex] = useState(0);
 
-  // TTS + Audio states
+  /**
+   * ========== AUDIO/VOICE STATES ==========
+   */
   const [selectedVoice, setSelectedVoice] = useState('en-US-JennyNeural');
   const [selectedTranslationLanguage, setSelectedTranslationLanguage] = useState('Chinese');
+
+  // A collection of "steps" that the user generated
+  // Each step is { id, label, audioSequence: [ {type:'audio', url:'...', pauseDuration: number}, ... ] }
+  const [voiceSteps, setVoiceSteps] = useState([]);
+
+  // The combined audio sequence for "Play"
   const [audioSequence, setAudioSequence] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
 
-  // Loading states
+  /**
+   * ========== LOADING / ERROR STATES ==========
+   */
   const [loading, setLoading] = useState(false);
   const [shadowLoading, setShadowLoading] = useState(false);
   const [translateLoading, setTranslateLoading] = useState(false);
-
-  // Error and translation data
   const [error, setError] = useState('');
-  const [translatedText, setTranslatedText] = useState(''); // Single day translation
+
+  // For translation
+  const [translatedText, setTranslatedText] = useState('');
 
   // For our "Translate" button’s pop-up menu
   const [translateAnchorEl, setTranslateAnchorEl] = useState(null);
 
-  // Audio references
+  // Audio refs
   const audioRef = useRef(null);
   const pauseTimeoutIdRef = useRef(null);
   const wasInPauseRef = useRef(false);
@@ -79,7 +93,6 @@ function GeneratedStoryPage() {
     resetAudioState();
   };
 
-  // Reset audio & translation state on day switch
   const resetAudioState = () => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -96,6 +109,20 @@ function GeneratedStoryPage() {
     setCurrentAudioIndex(0);
     setError('');
     setTranslatedText('');
+    // We do NOT clear voiceSteps here, because the user might
+    // want to keep the steps they've generated from previous days.
+  };
+
+  /**
+   * Helper to add a new voice step to the voiceSteps array
+   */
+  const addVoiceStep = (label, sequence) => {
+    const newStep = {
+      id: Date.now(), // simple unique ID
+      label,
+      audioSequence: sequence || []
+    };
+    setVoiceSteps((prev) => [...prev, newStep]);
   };
 
   /**
@@ -105,7 +132,6 @@ function GeneratedStoryPage() {
     if (!stories || !stories[currentDayIndex]) return;
     setLoading(true);
     setError('');
-    resetAudioState();
 
     try {
       const dayItem = stories[currentDayIndex];
@@ -123,7 +149,9 @@ function GeneratedStoryPage() {
       }
 
       const audioUrl = URL.createObjectURL(response.data);
-      setAudioSequence([{ type: 'audio', url: audioUrl, pauseDuration: 0 }]);
+      // Create the step
+      const stepSequence = [{ type: 'audio', url: audioUrl, pauseDuration: 0 }];
+      addVoiceStep(`Read Aloud (Day ${dayItem.day})`, stepSequence);
     } catch (err) {
       console.error('Error:', err.message);
       setError('Error generating speech audio.');
@@ -140,7 +168,6 @@ function GeneratedStoryPage() {
     setTranslateLoading(true);
     setError('');
     setTranslatedText('');
-    resetAudioState();
 
     try {
       const { content } = stories[currentDayIndex];
@@ -155,7 +182,8 @@ function GeneratedStoryPage() {
         translatedSentences.push(translationRes.data.choices[0].message.content.trim());
       }
 
-      setTranslatedText(translatedSentences.join(' '));
+      const joinedTranslation = translatedSentences.join(' ');
+      setTranslatedText(joinedTranslation);
     } catch (err) {
       console.error('Error:', err.message);
       setError('Error translating the story.');
@@ -168,10 +196,9 @@ function GeneratedStoryPage() {
    * ========== GENERATE VOICE FOR TRANSLATED TEXT (ONE DAY ONLY) ==========
    */
   const handleGenerateTranslatedVoice = async () => {
-    if (!translatedText) return;
+    if (!stories || !stories[currentDayIndex] || !translatedText) return;
     setTranslateLoading(true);
     setError('');
-    resetAudioState();
 
     try {
       const dayItem = stories[currentDayIndex];
@@ -189,7 +216,11 @@ function GeneratedStoryPage() {
       }
 
       const audioUrl = URL.createObjectURL(response.data);
-      setAudioSequence([{ type: 'audio', url: audioUrl, pauseDuration: 0 }]);
+      const stepSequence = [{ type: 'audio', url: audioUrl, pauseDuration: 0 }];
+      addVoiceStep(
+        `Translated Voice (Day ${dayItem.day}, ${selectedTranslationLanguage})`,
+        stepSequence
+      );
     } catch (err) {
       console.error('Error:', err.message);
       setError('Error generating translated speech audio.');
@@ -205,7 +236,6 @@ function GeneratedStoryPage() {
     if (!stories || !stories[currentDayIndex]) return;
     setShadowLoading(true);
     setError('');
-    resetAudioState();
 
     try {
       const sequence = [];
@@ -233,7 +263,7 @@ function GeneratedStoryPage() {
         sequence.push({ type: 'audio', url: audioUrl, pauseDuration });
       }
 
-      setAudioSequence(sequence);
+      addVoiceStep(`Shadow Reading (Day ${stories[currentDayIndex].day})`, sequence);
     } catch (err) {
       console.error('Error:', err.message);
       setError('Error generating shadow reading audio.');
@@ -243,15 +273,19 @@ function GeneratedStoryPage() {
   };
 
   /**
-   * ========== AUDIO PLAYBACK CONTROLS ==========
+   * ========== COMBINE ALL STEPS & PLAYBACK CONTROLS ==========
    */
-  const handlePlayStories = () => {
-    if (audioSequence.length > 0) {
-      setIsPlaying(true);
-      setIsPaused(false);
-      setCurrentAudioIndex(0);
-      playNextSegment(0);
-    }
+  const handlePlayAll = () => {
+    if (voiceSteps.length === 0) return;
+    // Combine all steps in the order they were added
+    const combinedSequence = voiceSteps.flatMap((step) => step.audioSequence);
+    setAudioSequence(combinedSequence);
+
+    // Now start playing
+    setIsPlaying(true);
+    setIsPaused(false);
+    setCurrentAudioIndex(0);
+    playNextSegment(0);
   };
 
   const playNextSegment = (index) => {
@@ -318,7 +352,7 @@ function GeneratedStoryPage() {
     }, pauseDuration);
   };
 
-  const handleStopStories = () => {
+  const handleStop = () => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -350,10 +384,9 @@ function GeneratedStoryPage() {
       // Resume
       setIsPaused(false);
       if (audioRef.current) {
-        // If audioRef still valid, resume it
-        audioRef.current.play().catch((err) => {
-          console.error('Error resuming audio:', err);
-        });
+        audioRef.current
+          .play()
+          .catch((err) => console.error('Error resuming audio:', err));
       } else {
         // If we were in a pause, re-initiate that pause
         if (wasInPauseRef.current && currentPauseDurationRef.current > 0) {
@@ -374,6 +407,13 @@ function GeneratedStoryPage() {
         }
       }
     }
+  };
+
+  /**
+   * ========== DELETE A STEP ==========
+   */
+  const handleDeleteStep = (stepId) => {
+    setVoiceSteps((prev) => prev.filter((s) => s.id !== stepId));
   };
 
   /**
@@ -409,7 +449,9 @@ function GeneratedStoryPage() {
           Your Generated Story (Day {currentStory.day})
         </Typography>
 
-        {/** ========== TABLE OF CONTENTS ========== */}
+        {/**
+         * ========== TABLE OF CONTENTS / DAY NAVIGATION ==========
+         */}
         <Box mb={2} display="flex" alignItems="center">
           <Typography variant="body1" style={{ marginRight: '8px' }}>
             Jump to Day:
@@ -431,7 +473,6 @@ function GeneratedStoryPage() {
           </FormControl>
         </Box>
 
-        {/** ========== STORY NAVIGATION BUTTONS ========== */}
         <Box mb={2} display="flex" justifyContent="space-between">
           <Button
             variant="outlined"
@@ -449,7 +490,9 @@ function GeneratedStoryPage() {
           </Button>
         </Box>
 
-        {/** ========== CURRENT DAY CONTENT ========== */}
+        {/**
+         * ========== CURRENT DAY CONTENT ==========
+         */}
         <Box mt={2} p={2} bgcolor="#f5f5f5" borderRadius={4}>
           <Typography variant="h6">Day {currentStory.day}:</Typography>
           <Typography variant="body1" style={{ whiteSpace: 'pre-line' }}>
@@ -457,7 +500,9 @@ function GeneratedStoryPage() {
           </Typography>
         </Box>
 
-        {/** If we have a translation for this day, display it */}
+        {/**
+         * If we have a translation for this day, display it
+         */}
         {translatedText && (
           <Box mt={2} p={2} bgcolor="#e8f5e9" borderRadius={4}>
             <Typography variant="h6">
@@ -469,7 +514,9 @@ function GeneratedStoryPage() {
           </Box>
         )}
 
-        {/** ========== VOICE SELECTION ========== */}
+        {/**
+         * ========== VOICE SELECTION ==========
+         */}
         <TextField
           select
           fullWidth
@@ -490,9 +537,10 @@ function GeneratedStoryPage() {
           <TextFieldMenuItem value="zh-CN-YunxiNeural">Yunxi (Chinese)</TextFieldMenuItem>
         </TextField>
 
-        {/** ========== ACTION BUTTONS ========== */}
+        {/**
+         * ========== ACTION BUTTONS (All create new "Steps") ==========
+         */}
         <Box display="flex" flexDirection="column" alignItems="flex-start" mt={2}>
-          {/** Read Aloud Button */}
           <Button
             variant="contained"
             color="primary"
@@ -504,7 +552,6 @@ function GeneratedStoryPage() {
             {loading ? 'Generating Voice...' : 'Read Aloud (This Day)'}
           </Button>
 
-          {/** Combined Translate Button + Language Menu */}
           <ButtonGroup
             variant="contained"
             color="secondary"
@@ -521,8 +568,6 @@ function GeneratedStoryPage() {
               ▼
             </Button>
           </ButtonGroup>
-
-          {/** The actual Menu to pick the translation language */}
           <Menu
             anchorEl={translateAnchorEl}
             open={Boolean(translateAnchorEl)}
@@ -535,7 +580,6 @@ function GeneratedStoryPage() {
             <MenuItem onClick={() => handleTranslateMenuClose('Japanese')}>Japanese</MenuItem>
           </Menu>
 
-          {/** Generate Voice for Translated Story */}
           {translatedText && (
             <Button
               variant="contained"
@@ -551,7 +595,6 @@ function GeneratedStoryPage() {
             </Button>
           )}
 
-          {/** Shadow Reading Button */}
           <Button
             variant="contained"
             color="warning"
@@ -562,23 +605,19 @@ function GeneratedStoryPage() {
             {shadowLoading ? 'Generating Shadow Reading...' : 'Shadow Reading (This Day)'}
           </Button>
 
-          {/** Playback controls (Play, Pause/Resume, Stop) */}
+          {/**
+           * ========== PLAY/PAUSE/STOP FOR ALL STEPS ==========
+           */}
           <Box display="flex" alignItems="center" mt={2} width="100%">
             <Button
               variant="contained"
               color="primary"
-              onClick={handlePlayStories}
-              disabled={
-                loading ||
-                translateLoading ||
-                shadowLoading ||
-                isPlaying ||
-                audioSequence.length === 0
-              }
+              onClick={handlePlayAll}
+              disabled={isPlaying || voiceSteps.length === 0}
               fullWidth
               style={{ marginRight: '8px' }}
             >
-              Play
+              Play All
             </Button>
             <Button
               variant="contained"
@@ -593,7 +632,7 @@ function GeneratedStoryPage() {
             <Button
               variant="outlined"
               color="default"
-              onClick={handleStopStories}
+              onClick={handleStop}
               disabled={!isPlaying && !isPaused}
               fullWidth
             >
@@ -602,14 +641,43 @@ function GeneratedStoryPage() {
           </Box>
         </Box>
 
-        {/** Loading Indicators */}
+        {/**
+         * ========== PANEL OF VOICE STEPS ==========
+         */}
+        {voiceSteps.length > 0 && (
+          <Box mt={4} p={2} bgcolor="#fff8e1" borderRadius={4}>
+            <Typography variant="h6" gutterBottom>
+              Steps to Play (in Order):
+            </Typography>
+            <List>
+              {voiceSteps.map((step) => (
+                <ListItem
+                  key={step.id}
+                  secondaryAction={
+                    <IconButton
+                      edge="end"
+                      aria-label="delete"
+                      onClick={() => handleDeleteStep(step.id)}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  }
+                >
+                  <Typography variant="body1">{step.label}</Typography>
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+        )}
+
+        {/**
+         * ========== LOADING INDICATORS & ERRORS ==========
+         */}
         {(loading || translateLoading || shadowLoading) && (
           <Box mt={2}>
             <CircularProgress />
           </Box>
         )}
-
-        {/** Error Message */}
         {error && (
           <Box mt={2} p={2} bgcolor="#ffebee" borderRadius={4}>
             <Typography color="error" variant="body1">
