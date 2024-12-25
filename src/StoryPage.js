@@ -14,7 +14,7 @@ import {
   MenuItem,
 } from '@mui/material';
 
-import './App.css'; // Suppose this has the .Subtitle class for your custom font
+import './App.css'; // Ensure this includes the .Subtitle class for your custom font
 
 function StoryPage() {
   const navigate = useNavigate();
@@ -210,6 +210,7 @@ function StoryPage() {
           }
         }
 
+        // Call the backend
         const res = await axios.post(`${backendUrl}/api/chat`, { prompt });
         const assistantMessage = res.data.choices[0].message.content.trim();
 
@@ -278,10 +279,10 @@ function StoryPage() {
         <Box component="form" onSubmit={handleGenerateStory} mb={2}>
           {/* Block 1: Basic Options */}
           <Box
-            p={2}
-            mb={3}
+            p={3}
+            mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#f9f9f9' }}
+            sx={{ backgroundColor: '#e0e0e0' }} // Darker grey for Basic Options
           >
             <Typography variant="h6" gutterBottom>
               Basic Options
@@ -289,7 +290,7 @@ function StoryPage() {
             <Box
               display="flex"
               flexDirection={{ xs: 'column', md: 'row' }}
-              gap={2}
+              gap={3}
             >
               <TextField
                 fullWidth
@@ -306,6 +307,7 @@ function StoryPage() {
                 <MenuItem value="French">French</MenuItem>
                 <MenuItem value="German">German</MenuItem>
                 <MenuItem value="Japanese">Japanese</MenuItem>
+                {/* Add more languages as needed */}
               </TextField>
 
               <TextField
@@ -322,16 +324,16 @@ function StoryPage() {
           </Box>
 
           {/* Optional: */}
-          <Typography variant="body1" color="textSecondary" gutterBottom>
+          <Typography variant="h6" gutterBottom>
             Optional:
           </Typography>
 
-          {/* Merged Block: Title, Story Type, Time, Place */}
+          {/* Block 2: Story Setup (Merged Story Basics & Setting) */}
           <Box
-            p={2}
-            mb={3}
+            p={3}
+            mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#f0f0f0' }}
+            sx={{ backgroundColor: '#f5f5f5' }} // Lighter grey for Optional Blocks
           >
             <Typography variant="h6" gutterBottom>
               Story Setup
@@ -339,8 +341,8 @@ function StoryPage() {
             <Box
               display="flex"
               flexDirection={{ xs: 'column', md: 'row' }}
-              gap={2}
-              mb={2}
+              gap={3}
+              mb={3}
             >
               <TextField
                 fullWidth
@@ -367,13 +369,14 @@ function StoryPage() {
                 <MenuItem value="Fantasy">Fantasy</MenuItem>
                 <MenuItem value="Science Fiction">Science Fiction</MenuItem>
                 <MenuItem value="Horror">Horror</MenuItem>
+                {/* Add more types as needed */}
               </TextField>
             </Box>
 
             <Box
               display="flex"
               flexDirection={{ xs: 'column', md: 'row' }}
-              gap={2}
+              gap={3}
             >
               <TextField
                 fullWidth
@@ -397,12 +400,12 @@ function StoryPage() {
             </Box>
           </Box>
 
-          {/* Block: Main Character */}
+          {/* Block 3: Main Character */}
           <Box
-            p={2}
-            mb={3}
+            p={3}
+            mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#f9f9f9' }}
+            sx={{ backgroundColor: '#f5f5f5' }} // Lighter grey
           >
             <Typography variant="h6" gutterBottom>
               Main Character
@@ -410,7 +413,7 @@ function StoryPage() {
             <Box
               display="flex"
               flexDirection={{ xs: 'column', md: 'row' }}
-              gap={2}
+              gap={3}
             >
               <TextField
                 fullWidth
@@ -434,12 +437,12 @@ function StoryPage() {
             </Box>
           </Box>
 
-          {/* Block: Main Storyline */}
+          {/* Block 4: Main Storyline */}
           <Box
-            p={2}
-            mb={3}
+            p={3}
+            mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#f0f0f0' }}
+            sx={{ backgroundColor: '#f5f5f5' }} // Lighter grey
           >
             <Typography variant="h6" gutterBottom>
               Main Storyline
@@ -455,12 +458,12 @@ function StoryPage() {
             />
           </Box>
 
-          {/* Block: Difficulty & Word Limit */}
+          {/* Block 5: Difficulty & Word Limit */}
           <Box
-            p={2}
-            mb={2}
+            p={3}
+            mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#f9f9f9' }}
+            sx={{ backgroundColor: '#f5f5f5' }} // Lighter grey
           >
             <Typography variant="h6" gutterBottom>
               Difficulty & Word Limit
@@ -468,7 +471,7 @@ function StoryPage() {
             <Box
               display="flex"
               flexDirection={{ xs: 'column', md: 'row' }}
-              gap={2}
+              gap={3}
             >
               <TextField
                 fullWidth
