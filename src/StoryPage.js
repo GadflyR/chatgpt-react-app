@@ -484,9 +484,14 @@ function StoryPage() {
                 margin="normal"
               >
                 <MenuItem value="">None</MenuItem> {/* Optional: Allow clearing the field */}
-                {storyTypeSuggestions.map((type) => (
-                  <MenuItem key={type} value={type}>{type}</MenuItem>
-                ))}
+                { /* Removed storyTypeSuggestions array references */}
+                <MenuItem value="Adventure">Adventure</MenuItem>
+                <MenuItem value="Mystery">Mystery</MenuItem>
+                <MenuItem value="Romance">Romance</MenuItem>
+                <MenuItem value="Fantasy">Fantasy</MenuItem>
+                <MenuItem value="Science Fiction">Science Fiction</MenuItem>
+                <MenuItem value="Horror">Horror</MenuItem>
+                {/* Add more types as needed */}
               </TextField>
             </Box>
 
@@ -598,9 +603,9 @@ function StoryPage() {
                 margin="normal"
               >
                 <MenuItem value="">None</MenuItem> {/* Optional: Allow clearing the field */}
-                {languageDifficultySuggestions.map((diff) => (
-                  <MenuItem key={diff} value={diff}>{diff}</MenuItem>
-                ))}
+                <MenuItem value="Easy">Easy</MenuItem>
+                <MenuItem value="Intermediate">Intermediate</MenuItem>
+                <MenuItem value="Advanced">Advanced</MenuItem>
               </TextField>
 
               {/* Story Length (Text) with onKeyDown */}
