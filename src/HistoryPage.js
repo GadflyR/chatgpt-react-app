@@ -15,7 +15,7 @@ import { useNavigate } from 'react-router-dom';
 
 function HistoryPage() {
   const { currentUser } = useAuth();
-  const [stories, setStories] = useState([]);
+  const [storiesList, setStoriesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -35,14 +35,24 @@ function HistoryPage() {
 
           const fetchedStories = [];
           userStoriesSnapshot.forEach((doc) => {
-            // doc.data() might have { content, day, timestamp }
+            // Suppose each doc has: { createdAt, stories: [ { day, content }, ... ] }
+            // Or something similar. Adjust as needed.
             fetchedStories.push({ id: doc.id, ...doc.data() });
           });
 
-          setStories(fetchedStories);
+          // Sort by createdAt desc (latest first)
+          // If createdAt is a Firestore timestamp, compare with toMillis()
+          fetchedStories.sort((a, b) => {
+            // If 'createdAt' is a Firestore Timestamp
+            const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt).getTime();
+            const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt).getTime();
+            return bTime - aTime; // descending
+          });
+
+          setStoriesList(fetchedStories);
         } catch (err) {
-          console.error("Error fetching stories:", err);
-          setError("Error fetching user stories.");
+          console.error('Error fetching stories:', err);
+          setError('Error fetching user stories.');
         } finally {
           setLoading(false);
         }
@@ -93,39 +103,49 @@ function HistoryPage() {
           </Box>
         )}
 
-        {stories.length > 0 ? (
-          stories.map((storyItem) => {
-            // e.g. storyItem = { id, content, day, timestamp }
-            const { id, content = '', day, timestamp } = storyItem;
-            // We'll show only first 100 chars
-            const snippet = content.substring(0, 100);
+        {/* Show each doc as one multi-day story */}
+        {storiesList.length > 0 ? (
+          storiesList.map((docItem) => {
+            // docItem might look like { id, createdAt, stories: [ {day, content}, ... ] }
+            // We'll show how many days it contains, plus a snippet from the first day.
+            const { id, createdAt, stories = [] } = docItem;
+            const dayCount = stories.length;
+
+            // If we have at least one day:
+            let snippet = '';
+            if (dayCount > 0) {
+              const firstDayContent = stories[0].content || '';
+              snippet = firstDayContent.substring(0, 100);
+            }
 
             return (
               <Card key={id} variant="outlined" style={{ marginBottom: '16px' }}>
                 <CardActionArea
                   onClick={() =>
-                    // Pass an array named "stories" to GeneratedStoryPage
+                    // Pass the entire array of days to the GeneratedStoryPage
                     navigate('/generated-story', {
                       state: {
-                        stories: [
-                          {
-                            day,
-                            content,
-                            timestamp,
-                          },
-                        ],
+                        stories,
                       },
                     })
                   }
                 >
                   <CardContent>
                     <Typography variant="subtitle2" color="textSecondary">
-                      Generated on: {formatTimestamp(timestamp)}
+                      {/* Show createdAt date */}
+                      Generated on: {formatTimestamp(createdAt)}
                     </Typography>
                     <Typography variant="body1" style={{ marginTop: 8 }}>
-                      {snippet}
-                      {content.length > 100 && '...'}
+                      {/* e.g. "This story contains 4 days" */}
+                      This story contains {dayCount} day{dayCount !== 1 ? 's' : ''}.
                     </Typography>
+                    {/* Show snippet of the first day's text */}
+                    {dayCount > 0 && (
+                      <Typography variant="body2" style={{ marginTop: 8 }}>
+                        {snippet}
+                        {stories[0].content?.length > 100 && '...'}
+                      </Typography>
+                    )}
                   </CardContent>
                 </CardActionArea>
               </Card>
