@@ -21,44 +21,89 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import axios from 'axios';
 
+/**
+ * Map from translation language to recommended voice
+ */
+const TRANSLATION_VOICE_MAP = {
+  Chinese: 'zh-CN-XiaoxiaoNeural',
+  Spanish: 'es-ES-ElviraNeural',
+  French: 'fr-FR-DeniseNeural',
+  German: 'de-DE-KatjaNeural',
+  Japanese: 'ja-JP-NanamiNeural',
+};
+
+/**
+ * Additional multi-language voices for user selection
+ */
+const ALL_AVAILABLE_VOICES = [
+  { label: 'Jenny (US)', value: 'en-US-JennyNeural' },
+  { label: 'Guy (US)', value: 'en-US-GuyNeural' },
+  { label: 'Libby (UK)', value: 'en-GB-LibbyNeural' },
+  { label: 'Ryan (UK)', value: 'en-GB-RyanNeural' },
+  { label: 'Natasha (AU)', value: 'en-AU-NatashaNeural' },
+  { label: 'Neerja (IN)', value: 'en-IN-NeerjaNeural' },
+  { label: 'Xiaoxiao (Chinese)', value: 'zh-CN-XiaoxiaoNeural' },
+  { label: 'Yunxi (Chinese)', value: 'zh-CN-YunxiNeural' },
+  { label: 'Elvira (Spanish)', value: 'es-ES-ElviraNeural' },
+  { label: 'Alvaro (Spanish)', value: 'es-ES-AlvaroNeural' },
+  { label: 'Denise (French)', value: 'fr-FR-DeniseNeural' },
+  { label: 'Henri (French)', value: 'fr-FR-HenriNeural' },
+  { label: 'Katja (German)', value: 'de-DE-KatjaNeural' },
+  { label: 'Nanami (Japanese)', value: 'ja-JP-NanamiNeural' },
+];
+
 function GeneratedStoryPage() {
   const location = useLocation();
   const { stories } = location.state || {};
-
-  // Keep track of which day index is currently displayed
   const [currentDayIndex, setCurrentDayIndex] = useState(0);
 
-  /**
-   * ========== AUDIO/VOICE STATES ==========
-   */
+  // The user-chosen voice (for normal reading or shadow reading, etc.)
   const [selectedVoice, setSelectedVoice] = useState('en-US-JennyNeural');
   const [selectedTranslationLanguage, setSelectedTranslationLanguage] = useState('Chinese');
 
-  // A collection of "steps" that the user generated
-  // Each step is { id, label, audioSequence: [ {type:'audio', url:'...', pauseDuration: number}, ... ] }
+  /**
+   * Cache to store TTS requests by key, so we don't re-generate
+   * key: e.g. "READ_ALOUD:3", or "TRANSLATED:3:Chinese", or "SHADOW:3"
+   * value: {
+   *   status: 'pending' | 'done' | 'error',
+   *   sequence: [ { type: 'audio', url, pauseDuration }, ... ] or null if pending/error
+   * }
+   */
+  const [ttsCache, setTtsCache] = useState({});
+
+  /**
+   * voiceSteps: array of step objects
+   * Each step references a cacheKey, plus local metadata:
+   * {
+   *   id: number, // unique
+   *   label: string,
+   *   cacheKey: string, // pointer into ttsCache
+   * }
+   *
+   * We'll look up ttsCache[cacheKey].status to see if it's done/pending/error
+   * We'll use ttsCache[cacheKey].sequence to get the audio
+   */
   const [voiceSteps, setVoiceSteps] = useState([]);
 
-  // The combined audio sequence for "Play"
+  // For background generation, we won't wait to start playing.  
+  // So we track the final combined audioSequence for playback at the moment user hits "Play."
   const [audioSequence, setAudioSequence] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
 
-  /**
-   * ========== LOADING / ERROR STATES ==========
-   */
+  // Loading states for UI feedback
   const [loading, setLoading] = useState(false);
   const [shadowLoading, setShadowLoading] = useState(false);
   const [translateLoading, setTranslateLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  // For translation
+  const [error, setError] = useState('');
   const [translatedText, setTranslatedText] = useState('');
 
-  // For our "Translate" button’s pop-up menu
+  // For the "Translate" menu
   const [translateAnchorEl, setTranslateAnchorEl] = useState(null);
 
-  // Audio refs
+  // Audio control
   const audioRef = useRef(null);
   const pauseTimeoutIdRef = useRef(null);
   const wasInPauseRef = useRef(false);
@@ -74,7 +119,7 @@ function GeneratedStoryPage() {
   };
 
   /**
-   * ========== DAY NAVIGATION ==========
+   * ========== DAY NAVIGATION & RESET ==========
    */
   const handlePreviousDay = () => {
     if (!stories) return;
@@ -94,6 +139,16 @@ function GeneratedStoryPage() {
   };
 
   const resetAudioState = () => {
+    stopPlayback();
+    setError('');
+    setTranslatedText('');
+    // Note: we do NOT clear voiceSteps or ttsCache here,
+    // because we might want to reuse previously generated audio across days if desired.
+    // If you prefer to clear them, you can.
+  };
+
+  // Separate function to stop playback
+  const stopPlayback = () => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -103,65 +158,116 @@ function GeneratedStoryPage() {
       clearTimeout(pauseTimeoutIdRef.current);
       pauseTimeoutIdRef.current = null;
     }
-    setAudioSequence([]);
     setIsPlaying(false);
     setIsPaused(false);
     setCurrentAudioIndex(0);
-    setError('');
-    setTranslatedText('');
-    // We do NOT clear voiceSteps here, because the user might
-    // want to keep the steps they've generated from previous days.
+    setAudioSequence([]);
   };
 
   /**
-   * Helper to add a new voice step to the voiceSteps array
+   * Build a cache key for each “action type”
    */
-  const addVoiceStep = (label, sequence) => {
-    const newStep = {
-      id: Date.now(), // simple unique ID
-      label,
-      audioSequence: sequence || []
-    };
-    setVoiceSteps((prev) => [...prev, newStep]);
+  const buildCacheKey = (action, day, language) => {
+    // action can be READ_ALOUD, TRANSLATED, SHADOW
+    // e.g. "TRANSLATED:3:Chinese"
+    return language
+      ? `${action}:${day}:${language}`
+      : `${action}:${day}`;
   };
 
   /**
-   * ========== READ ALOUD (ONE DAY ONLY) ==========
+   * ========== Reusable TTS Generation function ==========
+   * Takes text, voice, etc. to generate
+   */
+  const generateTtsSequence = async (text, voice, isShadow = false) => {
+    // If shadow reading, we do multiple sentence calls
+    if (isShadow) {
+      const sentences = getSentences(text);
+      const sequence = [];
+      for (let sentence of sentences) {
+        const wordsCount = sentence.trim().split(/\s+/).length;
+        const pauseDuration = wordsCount * 200; // tune as needed
+        const response = await axios.post(
+          `${backendUrl}/api/tts`,
+          { text: sentence, voice },
+          { responseType: 'blob' }
+        );
+        if (!response.data) {
+          throw new Error('Failed to retrieve audio data from server.');
+        }
+        const audioUrl = URL.createObjectURL(response.data);
+        sequence.push({ type: 'audio', url: audioUrl, pauseDuration });
+      }
+      return sequence;
+    } else {
+      // Normal single call
+      const response = await axios.post(
+        `${backendUrl}/api/tts`,
+        { text, voice },
+        { responseType: 'blob' }
+      );
+      if (!response.data) {
+        throw new Error('Failed to retrieve audio data from server.');
+      }
+      const audioUrl = URL.createObjectURL(response.data);
+      return [{ type: 'audio', url: audioUrl, pauseDuration: 0 }];
+    }
+  };
+
+  /**
+   * ========== READ ALOUD (ONE DAY) ==========
+   * If user clicks “Read Aloud” for day X, we build a key like "READ_ALOUD:3".
+   * If it's not in cache or was error, generate it. Otherwise reuse.
+   * Then we add a step with that key.
    */
   const handleReadAloud = async () => {
     if (!stories || !stories[currentDayIndex]) return;
     setLoading(true);
     setError('');
 
+    const dayItem = stories[currentDayIndex];
+    const cacheKey = buildCacheKey('READ_ALOUD', dayItem.day);
+
+    // If we have it in cache and it's either pending or done, skip re-generation
+    const existing = ttsCache[cacheKey];
+    if (existing && (existing.status === 'pending' || existing.status === 'done')) {
+      // We won't regenerate, just add the step referencing the same audio
+      addVoiceStep(`Read Aloud (Day ${dayItem.day})`, cacheKey);
+      setLoading(false);
+      return;
+    }
+
+    // Otherwise, create a new entry with status pending
+    setTtsCache((prev) => ({
+      ...prev,
+      [cacheKey]: { status: 'pending', sequence: null },
+    }));
+    addVoiceStep(`Read Aloud (Day ${dayItem.day})`, cacheKey);
+
     try {
-      const dayItem = stories[currentDayIndex];
-      const response = await axios.post(
-        `${backendUrl}/api/tts`,
-        {
-          text: `Day ${dayItem.day}: ${dayItem.content}`,
-          voice: selectedVoice,
-        },
-        { responseType: 'blob' }
-      );
+      // Generate TTS
+      const text = `Day ${dayItem.day}: ${dayItem.content}`;
+      const sequence = await generateTtsSequence(text, selectedVoice);
 
-      if (!response.data) {
-        throw new Error('Failed to retrieve audio data from server.');
-      }
-
-      const audioUrl = URL.createObjectURL(response.data);
-      // Create the step
-      const stepSequence = [{ type: 'audio', url: audioUrl, pauseDuration: 0 }];
-      addVoiceStep(`Read Aloud (Day ${dayItem.day})`, stepSequence);
+      // Mark as done
+      setTtsCache((prev) => ({
+        ...prev,
+        [cacheKey]: { status: 'done', sequence },
+      }));
     } catch (err) {
-      console.error('Error:', err.message);
+      console.error(err);
       setError('Error generating speech audio.');
+      setTtsCache((prev) => ({
+        ...prev,
+        [cacheKey]: { status: 'error', sequence: null },
+      }));
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * ========== TRANSLATION (ONE DAY ONLY) ==========
+   * ========== TRANSLATION (ONE DAY) ==========
    */
   const handleTranslate = async () => {
     if (!stories || !stories[currentDayIndex]) return;
@@ -185,7 +291,7 @@ function GeneratedStoryPage() {
       const joinedTranslation = translatedSentences.join(' ');
       setTranslatedText(joinedTranslation);
     } catch (err) {
-      console.error('Error:', err.message);
+      console.error('Error:', err);
       setError('Error translating the story.');
     } finally {
       setTranslateLoading(false);
@@ -193,150 +299,199 @@ function GeneratedStoryPage() {
   };
 
   /**
-   * ========== GENERATE VOICE FOR TRANSLATED TEXT (ONE DAY ONLY) ==========
+   * ========== GENERATE VOICE FOR TRANSLATED TEXT ==========
+   * Auto-select voice based on the translation language
    */
   const handleGenerateTranslatedVoice = async () => {
     if (!stories || !stories[currentDayIndex] || !translatedText) return;
     setTranslateLoading(true);
     setError('');
 
-    try {
-      const dayItem = stories[currentDayIndex];
-      const response = await axios.post(
-        `${backendUrl}/api/tts`,
-        {
-          text: `Day ${dayItem.day}: ${translatedText}`,
-          voice: selectedVoice,
-        },
-        { responseType: 'blob' }
-      );
+    const dayItem = stories[currentDayIndex];
+    // Pick the appropriate voice for the selectedTranslationLanguage
+    const autoVoice =
+      TRANSLATION_VOICE_MAP[selectedTranslationLanguage] || 'zh-CN-XiaoxiaoNeural'; // default fallback
 
-      if (!response.data) {
-        throw new Error('Failed to retrieve audio data from server.');
-      }
+    const cacheKey = buildCacheKey(
+      'TRANSLATED',
+      dayItem.day,
+      selectedTranslationLanguage
+    );
 
-      const audioUrl = URL.createObjectURL(response.data);
-      const stepSequence = [{ type: 'audio', url: audioUrl, pauseDuration: 0 }];
+    // If we have it in cache and it's pending or done, reuse
+    const existing = ttsCache[cacheKey];
+    if (existing && (existing.status === 'pending' || existing.status === 'done')) {
       addVoiceStep(
         `Translated Voice (Day ${dayItem.day}, ${selectedTranslationLanguage})`,
-        stepSequence
+        cacheKey
       );
+      setTranslateLoading(false);
+      return;
+    }
+
+    // Otherwise, create new entry
+    setTtsCache((prev) => ({
+      ...prev,
+      [cacheKey]: { status: 'pending', sequence: null },
+    }));
+    addVoiceStep(
+      `Translated Voice (Day ${dayItem.day}, ${selectedTranslationLanguage})`,
+      cacheKey
+    );
+
+    try {
+      const text = `Day ${dayItem.day}: ${translatedText}`;
+      const sequence = await generateTtsSequence(text, autoVoice);
+      setTtsCache((prev) => ({
+        ...prev,
+        [cacheKey]: { status: 'done', sequence },
+      }));
     } catch (err) {
-      console.error('Error:', err.message);
+      console.error(err);
       setError('Error generating translated speech audio.');
+      setTtsCache((prev) => ({
+        ...prev,
+        [cacheKey]: { status: 'error', sequence: null },
+      }));
     } finally {
       setTranslateLoading(false);
     }
   };
 
   /**
-   * ========== SHADOW READING (ONE DAY ONLY) ==========
+   * ========== SHADOW READING (ONE DAY) ==========
    */
   const handleShadowReading = async () => {
     if (!stories || !stories[currentDayIndex]) return;
     setShadowLoading(true);
     setError('');
 
+    const dayItem = stories[currentDayIndex];
+    const cacheKey = buildCacheKey('SHADOW', dayItem.day);
+
+    const existing = ttsCache[cacheKey];
+    if (existing && (existing.status === 'pending' || existing.status === 'done')) {
+      // Reuse
+      addVoiceStep(`Shadow Reading (Day ${dayItem.day})`, cacheKey);
+      setShadowLoading(false);
+      return;
+    }
+
+    // Otherwise new
+    setTtsCache((prev) => ({
+      ...prev,
+      [cacheKey]: { status: 'pending', sequence: null },
+    }));
+    addVoiceStep(`Shadow Reading (Day ${dayItem.day})`, cacheKey);
+
     try {
-      const sequence = [];
-      const { content } = stories[currentDayIndex];
-      const sentences = getSentences(content);
-
-      for (let sentence of sentences) {
-        const wordsCount = sentence.trim().split(/\s+/).length;
-        const pauseDuration = wordsCount * 200; // adjust as needed
-
-        const response = await axios.post(
-          `${backendUrl}/api/tts`,
-          {
-            text: sentence,
-            voice: selectedVoice,
-          },
-          { responseType: 'blob' }
-        );
-
-        if (!response.data) {
-          throw new Error('Failed to retrieve audio data from server.');
-        }
-
-        const audioUrl = URL.createObjectURL(response.data);
-        sequence.push({ type: 'audio', url: audioUrl, pauseDuration });
-      }
-
-      addVoiceStep(`Shadow Reading (Day ${stories[currentDayIndex].day})`, sequence);
+      const sequence = await generateTtsSequence(
+        dayItem.content,
+        selectedVoice,
+        true // isShadow
+      );
+      setTtsCache((prev) => ({
+        ...prev,
+        [cacheKey]: { status: 'done', sequence },
+      }));
     } catch (err) {
-      console.error('Error:', err.message);
+      console.error(err);
       setError('Error generating shadow reading audio.');
+      setTtsCache((prev) => ({
+        ...prev,
+        [cacheKey]: { status: 'error', sequence: null },
+      }));
     } finally {
       setShadowLoading(false);
     }
   };
 
   /**
-   * ========== COMBINE ALL STEPS & PLAYBACK CONTROLS ==========
+   * ========== ADDING STEPS TO voiceSteps ==========
+   */
+  const addVoiceStep = (label, cacheKey) => {
+    const newStep = {
+      id: Date.now(),
+      label,
+      cacheKey,
+    };
+    setVoiceSteps((prev) => [...prev, newStep]);
+  };
+
+  /**
+   * ========== DELETE A STEP ==========
+   * This only removes the step from voiceSteps, not from the TTS cache.
+   */
+  const handleDeleteStep = (stepId) => {
+    setVoiceSteps((prev) => prev.filter((s) => s.id !== stepId));
+  };
+
+  /**
+   * ========== PLAY/PAUSE/STOP (ALL STEPS) ==========
+   * If user clicks "Play," we gather only the steps that have status === 'done' in the order they appear.
+   * If a step is 'pending', we skip it. If it finishes in the background while playing, we won't auto-include it
+   * unless we implement more advanced logic. For now, we keep it simple.
    */
   const handlePlayAll = () => {
-    if (voiceSteps.length === 0) return;
-    // Combine all steps in the order they were added
-    const combinedSequence = voiceSteps.flatMap((step) => step.audioSequence);
-    setAudioSequence(combinedSequence);
+    stopPlayback(); // reset previous playback
 
-    // Now start playing
+    // Build the combined sequence of DONE steps
+    const doneSteps = voiceSteps.filter((step) => {
+      const entry = ttsCache[step.cacheKey];
+      return entry && entry.status === 'done';
+    });
+    // Flatten
+    const combinedSequence = doneSteps.flatMap((step) => ttsCache[step.cacheKey].sequence);
+
+    if (combinedSequence.length === 0) {
+      // no playable audio
+      return;
+    }
+    setAudioSequence(combinedSequence);
     setIsPlaying(true);
     setIsPaused(false);
     setCurrentAudioIndex(0);
-    playNextSegment(0);
+    playNextSegment(0, combinedSequence);
   };
 
-  const playNextSegment = (index) => {
-    if (index >= audioSequence.length) {
+  const playNextSegment = (index, sequence) => {
+    if (index >= sequence.length) {
       setIsPlaying(false);
       setCurrentAudioIndex(0);
       return;
     }
+    if (isPaused) return;
 
-    if (isPaused) {
-      // If paused, do nothing. We'll resume from here later.
-      return;
-    }
-
-    const segment = audioSequence[index];
+    const segment = sequence[index];
     if (segment.type === 'audio') {
-      // Play the audio
       const newAudio = new Audio(segment.url);
       audioRef.current = newAudio;
-
-      newAudio.play().catch((error) => {
-        console.error('Error playing audio:', error);
+      newAudio.play().catch((err) => {
+        console.error('Error playing audio:', err);
         setError('Error playing audio.');
         setIsPlaying(false);
       });
 
       newAudio.onended = () => {
         audioRef.current = null;
-        if (isPaused) {
-          return;
-        }
-        // After audio ends, do a pause
-        doPauseThenNext(index, segment.pauseDuration);
+        if (isPaused) return;
+        doPauseThenNext(index, segment.pauseDuration, sequence);
       };
     }
   };
 
-  const doPauseThenNext = (index, pauseDuration) => {
+  const doPauseThenNext = (index, pauseDuration, sequence) => {
     if (pauseDuration <= 0) {
       const nextIndex = index + 1;
       setCurrentAudioIndex(nextIndex);
-      playNextSegment(nextIndex);
+      playNextSegment(nextIndex, sequence);
       return;
     }
-
     if (isPaused) {
       wasInPauseRef.current = true;
       currentPauseDurationRef.current = pauseDuration;
       return;
     }
-
     wasInPauseRef.current = false;
     currentPauseDurationRef.current = pauseDuration;
 
@@ -348,28 +503,16 @@ function GeneratedStoryPage() {
       }
       const nextIndex = index + 1;
       setCurrentAudioIndex(nextIndex);
-      playNextSegment(nextIndex);
+      playNextSegment(nextIndex, sequence);
     }, pauseDuration);
   };
 
   const handleStop = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current = null;
-    }
-    if (pauseTimeoutIdRef.current) {
-      clearTimeout(pauseTimeoutIdRef.current);
-      pauseTimeoutIdRef.current = null;
-    }
-    setIsPlaying(false);
-    setIsPaused(false);
-    setCurrentAudioIndex(0);
+    stopPlayback();
   };
 
   const handlePauseResume = () => {
     if (!isPlaying && !isPaused) return;
-
     if (!isPaused) {
       // Pause
       setIsPaused(true);
@@ -384,11 +527,8 @@ function GeneratedStoryPage() {
       // Resume
       setIsPaused(false);
       if (audioRef.current) {
-        audioRef.current
-          .play()
-          .catch((err) => console.error('Error resuming audio:', err));
+        audioRef.current.play().catch((err) => console.error('Error resuming audio:', err));
       } else {
-        // If we were in a pause, re-initiate that pause
         if (wasInPauseRef.current && currentPauseDurationRef.current > 0) {
           pauseTimeoutIdRef.current = setTimeout(() => {
             pauseTimeoutIdRef.current = null;
@@ -398,22 +538,14 @@ function GeneratedStoryPage() {
             }
             const nextIndex = currentAudioIndex + 1;
             setCurrentAudioIndex(nextIndex);
-            playNextSegment(nextIndex);
+            playNextSegment(nextIndex, audioSequence);
           }, currentPauseDurationRef.current);
         } else {
-          // Otherwise, just continue from next
-          const nextIndex = currentAudioIndex;
-          playNextSegment(nextIndex);
+          // Continue from current index
+          playNextSegment(currentAudioIndex, audioSequence);
         }
       }
     }
-  };
-
-  /**
-   * ========== DELETE A STEP ==========
-   */
-  const handleDeleteStep = (stepId) => {
-    setVoiceSteps((prev) => prev.filter((s) => s.id !== stepId));
   };
 
   /**
@@ -422,13 +554,18 @@ function GeneratedStoryPage() {
   const handleTranslateMenuClick = (event) => {
     setTranslateAnchorEl(event.currentTarget);
   };
-
   const handleTranslateMenuClose = (language) => {
     setTranslateAnchorEl(null);
     if (language) {
       setSelectedTranslationLanguage(language);
     }
   };
+
+  // Helper: Are there any steps with status === 'done'?
+  const hasReadyAudio = voiceSteps.some((step) => {
+    const entry = ttsCache[step.cacheKey];
+    return entry && entry.status === 'done';
+  });
 
   if (!stories || stories.length === 0) {
     return (
@@ -449,9 +586,7 @@ function GeneratedStoryPage() {
           Your Generated Story (Day {currentStory.day})
         </Typography>
 
-        {/**
-         * ========== TABLE OF CONTENTS / DAY NAVIGATION ==========
-         */}
+        {/** TABLE OF CONTENTS / DAY NAVIGATION */}
         <Box mb={2} display="flex" alignItems="center">
           <Typography variant="body1" style={{ marginRight: '8px' }}>
             Jump to Day:
@@ -490,9 +625,7 @@ function GeneratedStoryPage() {
           </Button>
         </Box>
 
-        {/**
-         * ========== CURRENT DAY CONTENT ==========
-         */}
+        {/** CURRENT DAY CONTENT */}
         <Box mt={2} p={2} bgcolor="#f5f5f5" borderRadius={4}>
           <Typography variant="h6">Day {currentStory.day}:</Typography>
           <Typography variant="body1" style={{ whiteSpace: 'pre-line' }}>
@@ -500,9 +633,7 @@ function GeneratedStoryPage() {
           </Typography>
         </Box>
 
-        {/**
-         * If we have a translation for this day, display it
-         */}
+        {/** If we have a translation for this day, display it */}
         {translatedText && (
           <Box mt={2} p={2} bgcolor="#e8f5e9" borderRadius={4}>
             <Typography variant="h6">
@@ -514,9 +645,7 @@ function GeneratedStoryPage() {
           </Box>
         )}
 
-        {/**
-         * ========== VOICE SELECTION ==========
-         */}
+        {/** VOICE SELECTION (For normal read/shadow) */}
         <TextField
           select
           fullWidth
@@ -527,20 +656,17 @@ function GeneratedStoryPage() {
           margin="normal"
           required
         >
-          <TextFieldMenuItem value="en-US-JennyNeural">Jenny (US)</TextFieldMenuItem>
-          <TextFieldMenuItem value="en-US-GuyNeural">Guy (US)</TextFieldMenuItem>
-          <TextFieldMenuItem value="en-GB-LibbyNeural">Libby (UK)</TextFieldMenuItem>
-          <TextFieldMenuItem value="en-GB-RyanNeural">Ryan (UK)</TextFieldMenuItem>
-          <TextFieldMenuItem value="en-AU-NatashaNeural">Natasha (AU)</TextFieldMenuItem>
-          <TextFieldMenuItem value="en-IN-NeerjaNeural">Neerja (IN)</TextFieldMenuItem>
-          <TextFieldMenuItem value="zh-CN-XiaoxiaoNeural">Xiaoxiao (Chinese)</TextFieldMenuItem>
-          <TextFieldMenuItem value="zh-CN-YunxiNeural">Yunxi (Chinese)</TextFieldMenuItem>
+          {ALL_AVAILABLE_VOICES.map((v) => (
+            <TextFieldMenuItem key={v.value} value={v.value}>
+              {v.label}
+            </TextFieldMenuItem>
+          ))}
         </TextField>
 
-        {/**
-         * ========== ACTION BUTTONS (All create new "Steps") ==========
-         */}
+        {/** ACTION BUTTONS */}
         <Box display="flex" flexDirection="column" alignItems="flex-start" mt={2}>
+
+          {/** READ ALOUD */}
           <Button
             variant="contained"
             color="primary"
@@ -552,6 +678,7 @@ function GeneratedStoryPage() {
             {loading ? 'Generating Voice...' : 'Read Aloud (This Day)'}
           </Button>
 
+          {/** TRANSLATION + MENU */}
           <ButtonGroup
             variant="contained"
             color="secondary"
@@ -580,6 +707,7 @@ function GeneratedStoryPage() {
             <MenuItem onClick={() => handleTranslateMenuClose('Japanese')}>Japanese</MenuItem>
           </Menu>
 
+          {/** GENERATE TRANSLATED VOICE */}
           {translatedText && (
             <Button
               variant="contained"
@@ -595,6 +723,7 @@ function GeneratedStoryPage() {
             </Button>
           )}
 
+          {/** SHADOW READING */}
           <Button
             variant="contained"
             color="warning"
@@ -605,15 +734,13 @@ function GeneratedStoryPage() {
             {shadowLoading ? 'Generating Shadow Reading...' : 'Shadow Reading (This Day)'}
           </Button>
 
-          {/**
-           * ========== PLAY/PAUSE/STOP FOR ALL STEPS ==========
-           */}
+          {/** PLAY/PAUSE/STOP FOR ALL STEPS */}
           <Box display="flex" alignItems="center" mt={2} width="100%">
             <Button
               variant="contained"
               color="primary"
               onClick={handlePlayAll}
-              disabled={isPlaying || voiceSteps.length === 0}
+              disabled={!hasReadyAudio || isPlaying}
               fullWidth
               style={{ marginRight: '8px' }}
             >
@@ -641,43 +768,54 @@ function GeneratedStoryPage() {
           </Box>
         </Box>
 
-        {/**
-         * ========== PANEL OF VOICE STEPS ==========
-         */}
+        {/** LIST OF STEPS (in order) */}
         {voiceSteps.length > 0 && (
           <Box mt={4} p={2} bgcolor="#fff8e1" borderRadius={4}>
             <Typography variant="h6" gutterBottom>
               Steps to Play (in Order):
             </Typography>
             <List>
-              {voiceSteps.map((step) => (
-                <ListItem
-                  key={step.id}
-                  secondaryAction={
-                    <IconButton
-                      edge="end"
-                      aria-label="delete"
-                      onClick={() => handleDeleteStep(step.id)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  }
-                >
-                  <Typography variant="body1">{step.label}</Typography>
-                </ListItem>
-              ))}
+              {voiceSteps.map((step) => {
+                const entry = ttsCache[step.cacheKey] || {};
+                const statusLabel =
+                  entry.status === 'done'
+                    ? '(Ready)'
+                    : entry.status === 'pending'
+                    ? '(Generating...)'
+                    : entry.status === 'error'
+                    ? '(Error)'
+                    : '(?)';
+
+                return (
+                  <ListItem
+                    key={step.id}
+                    secondaryAction={
+                      <IconButton
+                        edge="end"
+                        aria-label="delete"
+                        onClick={() => handleDeleteStep(step.id)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    }
+                  >
+                    <Typography variant="body1">
+                      {step.label} {statusLabel}
+                    </Typography>
+                  </ListItem>
+                );
+              })}
             </List>
           </Box>
         )}
 
-        {/**
-         * ========== LOADING INDICATORS & ERRORS ==========
-         */}
+        {/** LOADING INDICATORS & ERRORS */}
         {(loading || translateLoading || shadowLoading) && (
           <Box mt={2}>
             <CircularProgress />
           </Box>
         )}
+
         {error && (
           <Box mt={2} p={2} bgcolor="#ffebee" borderRadius={4}>
             <Typography color="error" variant="body1">
