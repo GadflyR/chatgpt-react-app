@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from './AuthContext'; // Import to access current user
-import { db } from './firebase'; // Import Firestore instance
-import { collection, addDoc } from "firebase/firestore"; // Firestore functions
+import { db } from './firebase';       // Import Firestore instance
+import { collection, addDoc } from 'firebase/firestore'; // Firestore functions
 import { useNavigate } from 'react-router-dom';
 import {
   TextField,
@@ -13,43 +13,63 @@ import {
   CircularProgress,
   MenuItem,
 } from '@mui/material';
+
 import './App.css';
 
 function StoryPage() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
-  // Initialize state with localStorage values or defaults
-  const [title, setTitle] = useState(() => localStorage.getItem('title') || '');
-  const [protagonist, setProtagonist] = useState(() => localStorage.getItem('protagonist') || '');
-  const [storyType, setStoryType] = useState(() => localStorage.getItem('storyType') || '');
-  const [languageDifficulty, setLanguageDifficulty] = useState(() => localStorage.getItem('languageDifficulty') || '');
-  const [characterName, setCharacterName] = useState(() => localStorage.getItem('characterName') || '');
-  const [time, setTime] = useState(() => localStorage.getItem('time') || '');
-  const [place, setPlace] = useState(() => localStorage.getItem('place') || '');
+  // ----------- State -----------
+  // Required fields
+  const [storyLanguage, setStoryLanguage] = useState(
+    () => localStorage.getItem('storyLanguage') || ''
+  );
+  const [languageDifficulty, setLanguageDifficulty] = useState(
+    () => localStorage.getItem('languageDifficulty') || ''
+  );
+  const [characterName, setCharacterName] = useState(
+    () => localStorage.getItem('characterName') || ''
+  );
   const [numDays, setNumDays] = useState(() => {
     const savedNumDays = localStorage.getItem('numDays');
     return savedNumDays ? parseInt(savedNumDays, 10) : 1;
   });
-  const [mainStoryline, setMainStoryline] = useState(() => localStorage.getItem('mainStoryline') || ''); // New State
+
+  // Optional fields
+  const [title, setTitle] = useState(
+    () => localStorage.getItem('title') || ''
+  );
+  const [storyType, setStoryType] = useState(
+    () => localStorage.getItem('storyType') || ''
+  );
+  const [protagonist, setProtagonist] = useState(
+    () => localStorage.getItem('protagonist') || ''
+  );
+  const [time, setTime] = useState(() => localStorage.getItem('time') || '');
+  const [place, setPlace] = useState(
+    () => localStorage.getItem('place') || ''
+  );
+  const [mainStoryline, setMainStoryline] = useState(
+    () => localStorage.getItem('mainStoryline') || ''
+  );
+
+  // Other states
   const [loading, setLoading] = useState(false);
   const [currentDay, setCurrentDay] = useState(0);
   const [error, setError] = useState('');
 
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
+  // Show/hide toggle for optional fields
+  const [showOptionalFields, setShowOptionalFields] = useState(false);
 
-  // Save to localStorage whenever inputs change
-  useEffect(() => {
-    localStorage.setItem('title', title);
-  }, [title]);
+  const backendUrl =
+    process.env.REACT_APP_BACKEND_URL ||
+    'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
 
+  // ----------- useEffects to save localStorage -----------
   useEffect(() => {
-    localStorage.setItem('protagonist', protagonist);
-  }, [protagonist]);
-
-  useEffect(() => {
-    localStorage.setItem('storyType', storyType);
-  }, [storyType]);
+    localStorage.setItem('storyLanguage', storyLanguage);
+  }, [storyLanguage]);
 
   useEffect(() => {
     localStorage.setItem('languageDifficulty', languageDifficulty);
@@ -60,6 +80,23 @@ function StoryPage() {
   }, [characterName]);
 
   useEffect(() => {
+    localStorage.setItem('numDays', numDays);
+  }, [numDays]);
+
+  // Optional
+  useEffect(() => {
+    localStorage.setItem('title', title);
+  }, [title]);
+
+  useEffect(() => {
+    localStorage.setItem('storyType', storyType);
+  }, [storyType]);
+
+  useEffect(() => {
+    localStorage.setItem('protagonist', protagonist);
+  }, [protagonist]);
+
+  useEffect(() => {
     localStorage.setItem('time', time);
   }, [time]);
 
@@ -68,28 +105,26 @@ function StoryPage() {
   }, [place]);
 
   useEffect(() => {
-    localStorage.setItem('numDays', numDays);
-  }, [numDays]);
-
-  useEffect(() => {
-    localStorage.setItem('mainStoryline', mainStoryline); // Save Main Storyline
+    localStorage.setItem('mainStoryline', mainStoryline);
   }, [mainStoryline]);
 
-  // Function to generate stories
+  // ----------- Story Generation -----------
   const handleGenerateStory = async (e) => {
     e.preventDefault();
 
-    // Input validation
-    if (!languageDifficulty) {
+    // Validate required fields
+    if (!storyLanguage.trim()) {
+      setError('Please select a story language.');
+      return;
+    }
+    if (!languageDifficulty.trim()) {
       setError('Please select a language difficulty level.');
       return;
     }
-
     if (!characterName.trim()) {
       setError('Please enter a character name.');
       return;
     }
-
     if (!numDays || isNaN(numDays) || numDays < 1) {
       setError('Please enter a valid number of days (minimum 1).');
       return;
@@ -106,10 +141,13 @@ function StoryPage() {
     try {
       for (let day = 1; day <= numDays; day++) {
         setCurrentDay(day);
-        let prompt = '';
 
+        let prompt = '';
         if (day === 1) {
-          prompt = `Write a ${languageDifficulty.toLowerCase()} language story`;
+          // Day 1 Prompt
+          prompt = `Write a ${languageDifficulty.toLowerCase()} ${storyLanguage.toLowerCase()} story`;
+
+          // Title, story type, etc., if provided
           if (storyType.trim()) {
             prompt += ` in the ${storyType} genre`;
           }
@@ -129,13 +167,13 @@ function StoryPage() {
               prompt += time.trim() ? ` at ${place}` : ` in ${place}`;
             }
           }
-          // Incorporate Main Storyline if provided
           if (mainStoryline.trim()) {
             prompt += ` with the main storyline focusing on ${mainStoryline}`;
           }
-          prompt += '.';
-          prompt += ' Keep the story concise, around 300 words.';
+          prompt += '. Keep the story concise, around 300 words.';
         } else {
+          // Subsequent Days
+          // If the previous story is very long, let's summarize it first
           if (previousStory.length > 1500) {
             const summaryPrompt = `Summarize the following story in 200 words:\n\n${previousStory}`;
             const summaryRes = await axios.post(`${backendUrl}/api/chat`, {
@@ -144,47 +182,53 @@ function StoryPage() {
             previousStory = summaryRes.data.choices[0].message.content.trim();
           }
 
-          prompt = `Continue the following story into Day ${day}:\n\n${previousStory}\n\nEnsure the language difficulty remains ${languageDifficulty.toLowerCase()} and keep the story concise, around 300 words.`;
+          prompt = `Continue the following story into Day ${day}:\n\n${previousStory}\n\n` +
+                   `Ensure the language difficulty remains ${languageDifficulty.toLowerCase()} ` +
+                   `and the story remains in ${storyLanguage.toLowerCase()}. Keep it around 300 words.`;
         }
 
         const res = await axios.post(`${backendUrl}/api/chat`, { prompt });
-        const assistantMessage = res.data.choices[0].message.content;
+        const assistantMessage = res.data.choices[0].message.content.trim();
 
-        generatedStories.push({ day, content: assistantMessage.trim() });
-        previousStory = assistantMessage.trim();
+        generatedStories.push({ day, content: assistantMessage });
+        previousStory = assistantMessage;
       }
 
+      // Store in Firestore if the user is logged in
       if (currentUser) {
-        const userStoryCollection = collection(db, 'users', currentUser.uid, 'generatedStories');
+        const userStoryCollection = collection(
+          db,
+          'users',
+          currentUser.uid,
+          'generatedStories'
+        );
         for (let storyItem of generatedStories) {
           await addDoc(userStoryCollection, {
             day: storyItem.day,
             content: storyItem.content,
             timestamp: new Date(),
-            // Optionally store mainStoryline with each story
-            // mainStoryline: mainStoryline.trim() || null,
           });
         }
       }
 
       // Clear localStorage after successful generation
       localStorage.removeItem('title');
-      localStorage.removeItem('protagonist');
       localStorage.removeItem('storyType');
-      localStorage.removeItem('languageDifficulty');
-      localStorage.removeItem('characterName');
+      localStorage.removeItem('protagonist');
       localStorage.removeItem('time');
       localStorage.removeItem('place');
+      localStorage.removeItem('mainStoryline');
+      localStorage.removeItem('storyLanguage');
+      localStorage.removeItem('languageDifficulty');
+      localStorage.removeItem('characterName');
       localStorage.removeItem('numDays');
-      localStorage.removeItem('mainStoryline'); // Clear Main Storyline
 
-      // Navigate to GeneratedStoryPage with the generated stories
+      // Navigate to the GeneratedStoryPage with the generated stories
       navigate('/generated-story', {
         state: {
           stories: generatedStories,
         },
       });
-
     } catch (err) {
       console.error('Error:', err.response ? err.response.data : err.message);
       setError(
@@ -198,44 +242,38 @@ function StoryPage() {
     }
   };
 
+  // ----------- JSX Return -----------
   return (
     <Container maxWidth="md" style={{ marginTop: '100px' }}>
       <Box mt={4}>
-        <div className='Subtitle'>
-          Generate a Story Series
-        </div>
+        <div className="Subtitle">Generate a Story Series</div>
 
         <Box component="form" onSubmit={handleGenerateStory} mb={2}>
-          <TextField
-            fullWidth
-            label="Title (Optional)"
-            placeholder="e.g., The Brave Adventurer"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            variant="outlined"
-            margin="normal"
-          />
+          {/* Required: Story Language */}
           <TextField
             select
             fullWidth
-            label="Story Type (Optional)"
-            value={storyType}
-            onChange={(e) => setStoryType(e.target.value)}
+            label="Story Language (Required)"
+            value={storyLanguage}
+            onChange={(e) => setStoryLanguage(e.target.value)}
             variant="outlined"
             margin="normal"
+            required
           >
-            <MenuItem value="Adventure">Adventure</MenuItem>
-            <MenuItem value="Mystery">Mystery</MenuItem>
-            <MenuItem value="Romance">Romance</MenuItem>
-            <MenuItem value="Fantasy">Fantasy</MenuItem>
-            <MenuItem value="Science Fiction">Science Fiction</MenuItem>
-            <MenuItem value="Horror">Horror</MenuItem>
+            <MenuItem value="English">English</MenuItem>
+            <MenuItem value="Spanish">Spanish</MenuItem>
+            <MenuItem value="Chinese">Chinese</MenuItem>
+            <MenuItem value="French">French</MenuItem>
+            <MenuItem value="German">German</MenuItem>
+            <MenuItem value="Japanese">Japanese</MenuItem>
+            {/* Add more as needed */}
           </TextField>
 
+          {/* Required: Language Difficulty */}
           <TextField
             select
             fullWidth
-            label="Language Difficulty"
+            label="Language Difficulty (Required)"
             value={languageDifficulty}
             onChange={(e) => setLanguageDifficulty(e.target.value)}
             variant="outlined"
@@ -247,9 +285,10 @@ function StoryPage() {
             <MenuItem value="Advanced">Advanced</MenuItem>
           </TextField>
 
+          {/* Required: Character Name */}
           <TextField
             fullWidth
-            label="Character Name"
+            label="Character Name (Required)"
             placeholder="e.g., Alice, John"
             value={characterName}
             onChange={(e) => setCharacterName(e.target.value)}
@@ -258,49 +297,10 @@ function StoryPage() {
             required
           />
 
+          {/* Required: Number of Days */}
           <TextField
             fullWidth
-            label="Protagonist Characteristics (Optional)"
-            placeholder="e.g., a courageous knight, a curious child"
-            value={protagonist}
-            onChange={(e) => setProtagonist(e.target.value)}
-            variant="outlined"
-            margin="normal"
-          />
-
-          <TextField
-            fullWidth
-            label="Time (Optional)"
-            placeholder="e.g., medieval times, the future"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            variant="outlined"
-            margin="normal"
-          />
-
-          <TextField
-            fullWidth
-            label="Place (Optional)"
-            placeholder="e.g., a small village, outer space"
-            value={place}
-            onChange={(e) => setPlace(e.target.value)}
-            variant="outlined"
-            margin="normal"
-          />
-
-          <TextField
-            fullWidth
-            label="Main Storyline (Optional)"
-            placeholder="e.g., A quest to find the lost treasure"
-            value={mainStoryline}
-            onChange={(e) => setMainStoryline(e.target.value)}
-            variant="outlined"
-            margin="normal"
-          />
-
-          <TextField
-            fullWidth
-            label="How many days do you want to generate?"
+            label="How many days do you want to generate? (Required)"
             type="number"
             inputProps={{ min: 1 }}
             value={numDays}
@@ -310,6 +310,89 @@ function StoryPage() {
             required
           />
 
+          {/* Toggle button to show/hide optional fields */}
+          <Box mt={2} mb={1}>
+            <Button
+              variant="outlined"
+              onClick={() => setShowOptionalFields(!showOptionalFields)}
+            >
+              {showOptionalFields ? 'Hide Optional Fields' : 'Show Optional Fields'}
+            </Button>
+          </Box>
+
+          {/* Conditionally render optional fields */}
+          {showOptionalFields && (
+            <>
+              <TextField
+                fullWidth
+                label="Title (Optional)"
+                placeholder="e.g., The Brave Adventurer"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                variant="outlined"
+                margin="normal"
+              />
+
+              <TextField
+                select
+                fullWidth
+                label="Story Type (Optional)"
+                value={storyType}
+                onChange={(e) => setStoryType(e.target.value)}
+                variant="outlined"
+                margin="normal"
+              >
+                <MenuItem value="Adventure">Adventure</MenuItem>
+                <MenuItem value="Mystery">Mystery</MenuItem>
+                <MenuItem value="Romance">Romance</MenuItem>
+                <MenuItem value="Fantasy">Fantasy</MenuItem>
+                <MenuItem value="Science Fiction">Science Fiction</MenuItem>
+                <MenuItem value="Horror">Horror</MenuItem>
+              </TextField>
+
+              <TextField
+                fullWidth
+                label="Protagonist Characteristics (Optional)"
+                placeholder="e.g., a courageous knight, a curious child"
+                value={protagonist}
+                onChange={(e) => setProtagonist(e.target.value)}
+                variant="outlined"
+                margin="normal"
+              />
+
+              <TextField
+                fullWidth
+                label="Time (Optional)"
+                placeholder="e.g., medieval times, the future"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                variant="outlined"
+                margin="normal"
+              />
+
+              <TextField
+                fullWidth
+                label="Place (Optional)"
+                placeholder="e.g., a small village, outer space"
+                value={place}
+                onChange={(e) => setPlace(e.target.value)}
+                variant="outlined"
+                margin="normal"
+              />
+
+              <TextField
+                fullWidth
+                label="Main Storyline (Optional)"
+                placeholder="e.g., A quest to find the lost treasure"
+                value={mainStoryline}
+                onChange={(e) => setMainStoryline(e.target.value)}
+                variant="outlined"
+                margin="normal"
+              />
+            </>
+          )}
+
+          {/* Submit Button */}
           <Box display="flex" alignItems="center" mt={2}>
             <Button
               type="submit"
