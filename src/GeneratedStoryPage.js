@@ -1,6 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Box, Button, Typography, Container, CircularProgress, TextField, MenuItem } from '@mui/material';
+import {
+  Box,
+  Button,
+  Typography,
+  Container,
+  CircularProgress,
+  Menu,
+  MenuItem,
+  ButtonGroup,
+  TextField,
+  MenuItem as TextFieldMenuItem
+} from '@mui/material';
 import axios from 'axios';
 
 function GeneratedStoryPage() {
@@ -18,13 +29,18 @@ function GeneratedStoryPage() {
   const [translateLoading, setTranslateLoading] = useState(false);
   const [error, setError] = useState('');
   const [translatedStories, setTranslatedStories] = useState([]);
-  
+
+  // For our "Translate" button’s pop-up menu
+  const [translateAnchorEl, setTranslateAnchorEl] = useState(null);
+
   const audioRef = useRef(null);
   const pauseTimeoutIdRef = useRef(null);
   const wasInPauseRef = useRef(false);
   const currentPauseDurationRef = useRef(0);
 
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
+  const backendUrl =
+    process.env.REACT_APP_BACKEND_URL ||
+    'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
 
   const getSentences = (text) => {
     return text.match(/[^\.!\?]+[\.!\?]+/g) || [];
@@ -50,11 +66,11 @@ function GeneratedStoryPage() {
         );
 
         if (!response.data) {
-          throw new Error("Failed to retrieve audio data from server.");
+          throw new Error('Failed to retrieve audio data from server.');
         }
 
         const audioUrl = URL.createObjectURL(response.data);
-        return { type: 'audio', url: audioUrl, pauseDuration: 0 }; 
+        return { type: 'audio', url: audioUrl, pauseDuration: 0 };
       });
 
       const sequence = await Promise.all(audioPromises);
@@ -128,7 +144,7 @@ function GeneratedStoryPage() {
         );
 
         if (!response.data) {
-          throw new Error("Failed to retrieve audio data from server.");
+          throw new Error('Failed to retrieve audio data from server.');
         }
 
         const audioUrl = URL.createObjectURL(response.data);
@@ -173,7 +189,7 @@ function GeneratedStoryPage() {
           );
 
           if (!response.data) {
-            throw new Error("Failed to retrieve audio data from server.");
+            throw new Error('Failed to retrieve audio data from server.');
           }
 
           const audioUrl = URL.createObjectURL(response.data);
@@ -218,11 +234,13 @@ function GeneratedStoryPage() {
       const newAudio = new Audio(segment.url);
       audioRef.current = newAudio;
 
-      newAudio.play().catch((error) => {
-        console.error('Error playing audio:', error);
-        setError('Error playing audio.');
-        setIsPlaying(false);
-      });
+      newAudio
+        .play()
+        .catch((error) => {
+          console.error('Error playing audio:', error);
+          setError('Error playing audio.');
+          setIsPlaying(false);
+        });
 
       newAudio.onended = () => {
         audioRef.current = null;
@@ -231,7 +249,7 @@ function GeneratedStoryPage() {
           return;
         }
 
-        // After audio ends, we do a pause
+        // After audio ends, do a pause
         doPauseThenNext(index, segment.pauseDuration);
       };
     }
@@ -247,9 +265,9 @@ function GeneratedStoryPage() {
     }
 
     if (isPaused) {
-      // If paused right here, just return. We'll resume later.
+      // If paused right here, store the pause
       wasInPauseRef.current = true;
-      currentPauseDurationRef.current = pauseDuration; // store the pause we needed
+      currentPauseDurationRef.current = pauseDuration;
       return;
     }
 
@@ -260,9 +278,8 @@ function GeneratedStoryPage() {
     pauseTimeoutIdRef.current = setTimeout(() => {
       pauseTimeoutIdRef.current = null;
       if (isPaused) {
-        // If user paused during timeout:
+        // If user paused during timeout
         wasInPauseRef.current = true;
-        // We'll handle resume later
         return;
       }
 
@@ -292,11 +309,9 @@ function GeneratedStoryPage() {
     if (!isPaused) {
       // Pause
       setIsPaused(true);
-      // If audio is playing, pause it
       if (audioRef.current) {
         audioRef.current.pause();
       }
-      // If we are in a pause timeout, clear it
       if (pauseTimeoutIdRef.current) {
         clearTimeout(pauseTimeoutIdRef.current);
         pauseTimeoutIdRef.current = null;
@@ -304,23 +319,20 @@ function GeneratedStoryPage() {
     } else {
       // Resume
       setIsPaused(false);
-      // If we have audioRef, resume it (if it ended, there's nothing to resume)
       if (audioRef.current) {
+        // If audioRef still valid, resume it
         audioRef.current.play().catch((err) => {
-          console.error("Error resuming audio:", err);
+          console.error('Error resuming audio:', err);
         });
       } else {
         // If we were in a pause, re-initiate that pause
         if (wasInPauseRef.current && currentPauseDurationRef.current > 0) {
-          // Re-start the pause from scratch
           pauseTimeoutIdRef.current = setTimeout(() => {
             pauseTimeoutIdRef.current = null;
             if (isPaused) {
-              // If paused again during the pause
               wasInPauseRef.current = true;
               return;
             }
-            // Move to the next track
             const nextIndex = currentAudioIndex + 1;
             setCurrentAudioIndex(nextIndex);
             playNextSegment(nextIndex);
@@ -334,15 +346,34 @@ function GeneratedStoryPage() {
     }
   };
 
+  // Button menu handlers for translation
+  const handleTranslateMenuClick = (event) => {
+    setTranslateAnchorEl(event.currentTarget);
+  };
+
+  const handleTranslateMenuClose = (language) => {
+    setTranslateAnchorEl(null);
+    if (language) {
+      setSelectedTranslationLanguage(language);
+    }
+  };
+
   return (
     <Container maxWidth="md" style={{ marginTop: '75px' }}>
       <Box mt={4}>
         <Typography variant="h4" component="h1" gutterBottom>
           Your Generated Story
         </Typography>
-        {stories && stories.length > 0 &&
+        {stories &&
+          stories.length > 0 &&
           stories.map((storyItem) => (
-            <Box key={storyItem.day} mt={2} p={2} bgcolor="#f5f5f5" borderRadius={4}>
+            <Box
+              key={storyItem.day}
+              mt={2}
+              p={2}
+              bgcolor="#f5f5f5"
+              borderRadius={4}
+            >
               <Typography variant="h6">Day {storyItem.day}:</Typography>
               <Typography variant="body1" style={{ whiteSpace: 'pre-line' }}>
                 {storyItem.content}
@@ -353,14 +384,23 @@ function GeneratedStoryPage() {
         {/* Display Translated Stories */}
         {translatedStories.length > 0 &&
           translatedStories.map((storyItem) => (
-            <Box key={`translated-${storyItem.day}`} mt={2} p={2} bgcolor="#e8f5e9" borderRadius={4}>
-              <Typography variant="h6">Day {storyItem.day} (Translated):</Typography>
+            <Box
+              key={`translated-${storyItem.day}`}
+              mt={2}
+              p={2}
+              bgcolor="#e8f5e9"
+              borderRadius={4}
+            >
+              <Typography variant="h6">
+                Day {storyItem.day} (Translated):
+              </Typography>
               <Typography variant="body1" style={{ whiteSpace: 'pre-line' }}>
                 {storyItem.translated}
               </Typography>
             </Box>
           ))}
 
+        {/* Voice selection remains as-is */}
         <TextField
           select
           fullWidth
@@ -371,36 +411,17 @@ function GeneratedStoryPage() {
           margin="normal"
           required
         >
-          <MenuItem value="en-US-JennyNeural">Jenny (US)</MenuItem>
-          <MenuItem value="en-US-GuyNeural">Guy (US)</MenuItem>
-          <MenuItem value="en-GB-LibbyNeural">Libby (UK)</MenuItem>
-          <MenuItem value="en-GB-RyanNeural">Ryan (UK)</MenuItem>
-          <MenuItem value="en-AU-NatashaNeural">Natasha (AU)</MenuItem>
-          <MenuItem value="en-IN-NeerjaNeural">Neerja (IN)</MenuItem>
-          <MenuItem value="zh-CN-XiaoxiaoNeural">Xiaoxiao (Chinese)</MenuItem>
-          <MenuItem value="zh-CN-YunxiNeural">Yunxi (Chinese)</MenuItem>
-        </TextField>
-
-        {/* Language selection for translation */}
-        <TextField
-          select
-          fullWidth
-          label="Select Translation Language"
-          value={selectedTranslationLanguage}
-          onChange={(e) => setSelectedTranslationLanguage(e.target.value)}
-          variant="outlined"
-          margin="normal"
-          required
-        >
-          <MenuItem value="Chinese">Chinese</MenuItem>
-          <MenuItem value="Spanish">Spanish</MenuItem>
-          <MenuItem value="French">French</MenuItem>
-          <MenuItem value="German">German</MenuItem>
-          <MenuItem value="Japanese">Japanese</MenuItem>
+          <TextFieldMenuItem value="en-US-JennyNeural">Jenny (US)</TextFieldMenuItem>
+          <TextFieldMenuItem value="en-US-GuyNeural">Guy (US)</TextFieldMenuItem>
+          <TextFieldMenuItem value="en-GB-LibbyNeural">Libby (UK)</TextFieldMenuItem>
+          <TextFieldMenuItem value="en-GB-RyanNeural">Ryan (UK)</TextFieldMenuItem>
+          <TextFieldMenuItem value="en-AU-NatashaNeural">Natasha (AU)</TextFieldMenuItem>
+          <TextFieldMenuItem value="en-IN-NeerjaNeural">Neerja (IN)</TextFieldMenuItem>
+          <TextFieldMenuItem value="zh-CN-XiaoxiaoNeural">Xiaoxiao (Chinese)</TextFieldMenuItem>
+          <TextFieldMenuItem value="zh-CN-YunxiNeural">Yunxi (Chinese)</TextFieldMenuItem>
         </TextField>
 
         <Box display="flex" flexDirection="column" alignItems="flex-start" mt={2}>
-
           {/* Read Aloud Button */}
           <Button
             variant="contained"
@@ -413,17 +434,36 @@ function GeneratedStoryPage() {
             {loading ? 'Generating Voice...' : 'Read Aloud'}
           </Button>
 
-          {/* Translate Sentence-by-Sentence Button */}
-          <Button
+          {/* Combined Translate Button + Language Menu */}
+          <ButtonGroup
             variant="contained"
             color="secondary"
-            onClick={handleTranslate}
             disabled={translateLoading || !stories || stories.length === 0}
-            fullWidth
             style={{ marginBottom: '16px' }}
+            fullWidth
           >
-            {translateLoading ? 'Translating...' : 'Translate Sentence-by-Sentence'}
-          </Button>
+            <Button onClick={handleTranslate}>
+              {translateLoading
+                ? 'Translating...'
+                : `Translate to ${selectedTranslationLanguage}`}
+            </Button>
+            <Button size="small" onClick={handleTranslateMenuClick}>
+              ▼
+            </Button>
+          </ButtonGroup>
+
+          {/* The actual Menu to pick the translation language */}
+          <Menu
+            anchorEl={translateAnchorEl}
+            open={Boolean(translateAnchorEl)}
+            onClose={() => handleTranslateMenuClose(null)}
+          >
+            <MenuItem onClick={() => handleTranslateMenuClose('Chinese')}>Chinese</MenuItem>
+            <MenuItem onClick={() => handleTranslateMenuClose('Spanish')}>Spanish</MenuItem>
+            <MenuItem onClick={() => handleTranslateMenuClose('French')}>French</MenuItem>
+            <MenuItem onClick={() => handleTranslateMenuClose('German')}>German</MenuItem>
+            <MenuItem onClick={() => handleTranslateMenuClose('Japanese')}>Japanese</MenuItem>
+          </Menu>
 
           {/* Generate Voice for Translated Stories */}
           {translatedStories.length > 0 && (
@@ -435,7 +475,9 @@ function GeneratedStoryPage() {
               fullWidth
               style={{ marginBottom: '16px' }}
             >
-              {translateLoading ? 'Generating Translated Voice...' : 'Generate Voice for Translated Story'}
+              {translateLoading
+                ? 'Generating Translated Voice...'
+                : 'Generate Voice for Translated Story'}
             </Button>
           )}
 
@@ -450,13 +492,19 @@ function GeneratedStoryPage() {
             {shadowLoading ? 'Generating Shadow Reading...' : 'Shadow Reading'}
           </Button>
 
-          {/* Play, Pause/Resume, and Stop Buttons */}
+          {/* Playback controls (Play, Pause/Resume, Stop) */}
           <Box display="flex" alignItems="center" mt={2} width="100%">
             <Button
               variant="contained"
               color="primary"
               onClick={handlePlayStories}
-              disabled={loading || translateLoading || shadowLoading || isPlaying || audioSequence.length === 0}
+              disabled={
+                loading ||
+                translateLoading ||
+                shadowLoading ||
+                isPlaying ||
+                audioSequence.length === 0
+              }
               fullWidth
               style={{ marginRight: '8px' }}
             >
