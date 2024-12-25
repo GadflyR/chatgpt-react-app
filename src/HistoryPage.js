@@ -15,7 +15,7 @@ import { useNavigate } from 'react-router-dom';
 
 function HistoryPage() {
   const { currentUser } = useAuth();
-  const [storiesList, setStoriesList] = useState([]);
+  const [storyDocs, setStoryDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -24,7 +24,6 @@ function HistoryPage() {
     const fetchUserStories = async () => {
       if (currentUser) {
         try {
-          // For each user, we have a sub-collection "generatedStories" in Firestore.
           const userStoryCollection = collection(
             db,
             'users',
@@ -33,23 +32,13 @@ function HistoryPage() {
           );
           const userStoriesSnapshot = await getDocs(userStoryCollection);
 
-          const fetchedStories = [];
+          const fetched = [];
           userStoriesSnapshot.forEach((doc) => {
-            // Suppose each doc has: { createdAt, stories: [ { day, content }, ... ] }
-            // Or something similar. Adjust as needed.
-            fetchedStories.push({ id: doc.id, ...doc.data() });
+            // Each doc has { content, day, timestamp } (single day)
+            fetched.push({ id: doc.id, ...doc.data() });
           });
 
-          // Sort by createdAt desc (latest first)
-          // If createdAt is a Firestore timestamp, compare with toMillis()
-          fetchedStories.sort((a, b) => {
-            // If 'createdAt' is a Firestore Timestamp
-            const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt).getTime();
-            const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt).getTime();
-            return bTime - aTime; // descending
-          });
-
-          setStoriesList(fetchedStories);
+          setStoryDocs(fetched);
         } catch (err) {
           console.error('Error fetching stories:', err);
           setError('Error fetching user stories.');
@@ -64,18 +53,22 @@ function HistoryPage() {
     fetchUserStories();
   }, [currentUser]);
 
-  // Helper: format the timestamp for display
+  // If your docs store the date in docItem.timestamp,
+  // you can parse it here if it's a string or a Firestore Timestamp.
   const formatTimestamp = (ts) => {
-    // If it's a Firestore Timestamp object:
-    if (ts && ts.toDate) {
+    if (!ts) return 'Unknown date';
+
+    // If it's a Firestore Timestamp:
+    if (ts.toDate) {
       return ts.toDate().toLocaleString();
     }
-    // If it's a string or Date:
-    if (typeof ts === 'string' || ts instanceof Date) {
+
+    // If it's a normal string or Date:
+    try {
       return new Date(ts).toLocaleString();
+    } catch {
+      return String(ts); // fallback
     }
-    // fallback
-    return 'Unknown date';
   };
 
   if (loading) {
@@ -103,47 +96,53 @@ function HistoryPage() {
           </Box>
         )}
 
-        {/* Show each doc as one multi-day story */}
-        {storiesList.length > 0 ? (
-          storiesList.map((docItem) => {
-            // docItem might look like { id, createdAt, stories: [ {day, content}, ... ] }
-            // We'll show how many days it contains, plus a snippet from the first day.
-            const { id, createdAt, stories = [] } = docItem;
-            const dayCount = stories.length;
+        {storyDocs.length > 0 ? (
+          storyDocs.map((docItem) => {
+            // docItem = { id, content, day, timestamp }
 
-            // If we have at least one day:
-            let snippet = '';
-            if (dayCount > 0) {
-              const firstDayContent = stories[0].content || '';
-              snippet = firstDayContent.substring(0, 100);
-            }
+            // 1) We'll artificially create an array "stories"
+            const storiesArray = [
+              {
+                day: docItem.day,
+                content: docItem.content
+              }
+            ];
+
+            // 2) We'll display a snippet from docItem.content
+            const snippet = docItem.content
+              ? docItem.content.substring(0, 100)
+              : '';
 
             return (
-              <Card key={id} variant="outlined" style={{ marginBottom: '16px' }}>
+              <Card key={docItem.id} variant="outlined" style={{ marginBottom: '16px' }}>
                 <CardActionArea
                   onClick={() =>
-                    // Pass the entire array of days to the GeneratedStoryPage
                     navigate('/generated-story', {
                       state: {
-                        stories,
-                      },
+                        // Pass the artificially created array:
+                        stories: storiesArray,
+                        // Optional: pass the timestamp if you need it
+                        timestamp: docItem.timestamp
+                      }
                     })
                   }
                 >
                   <CardContent>
+                    {/* Show date */}
                     <Typography variant="subtitle2" color="textSecondary">
-                      {/* Show createdAt date */}
-                      Generated on: {formatTimestamp(createdAt)}
+                      Generated on: {formatTimestamp(docItem.timestamp)}
                     </Typography>
+
+                    {/* If we only have 1 day, we can say "This story contains 1 day." */}
                     <Typography variant="body1" style={{ marginTop: 8 }}>
-                      {/* e.g. "This story contains 4 days" */}
-                      This story contains {dayCount} day{dayCount !== 1 ? 's' : ''}.
+                      This story contains 1 day.
                     </Typography>
-                    {/* Show snippet of the first day's text */}
-                    {dayCount > 0 && (
+
+                    {/* snippet from single day content */}
+                    {snippet && (
                       <Typography variant="body2" style={{ marginTop: 8 }}>
                         {snippet}
-                        {stories[0].content?.length > 100 && '...'}
+                        {docItem.content.length > 100 && '...'}
                       </Typography>
                     )}
                   </CardContent>

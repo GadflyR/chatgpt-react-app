@@ -54,7 +54,7 @@ const ALL_AVAILABLE_VOICES = [
 
 function GeneratedStoryPage() {
   const location = useLocation();
-  // We expect an array named "stories"
+  // We expect an array named "stories" from the HistoryPage
   const { stories } = location.state || {};
   const [currentDayIndex, setCurrentDayIndex] = useState(0);
 
@@ -64,7 +64,7 @@ function GeneratedStoryPage() {
 
   /**
    * Cache to store TTS requests by key, so we don't re-generate
-   * key: e.g. "READ_ALOUD:3", or "TRANSLATED:3:Chinese", or "SHADOW:3"
+   * key: e.g. "READ_ALOUD:3", "TRANSLATED:3:Chinese", "SHADOW:3"
    * value: {
    *   status: 'pending' | 'done' | 'error',
    *   sequence: [ { type: 'audio', url, pauseDuration }, ... ] or null if pending/error
@@ -101,7 +101,7 @@ function GeneratedStoryPage() {
   const [error, setError] = useState('');
   const [translatedText, setTranslatedText] = useState('');
 
-  // For the "Translate" menu
+  // For the "Translate" button's pop-up menu
   const [translateAnchorEl, setTranslateAnchorEl] = useState(null);
 
   // Audio control
@@ -143,7 +143,7 @@ function GeneratedStoryPage() {
     stopPlayback();
     setError('');
     setTranslatedText('');
-    // We do NOT clear voiceSteps/ttsCache so the user can reuse them if they want
+    // We do NOT clear voiceSteps or ttsCache so the user can reuse them if they want
   };
 
   // Separate function to stop playback
@@ -167,7 +167,7 @@ function GeneratedStoryPage() {
    * Build a cache key for each “action type”
    */
   const buildCacheKey = (action, day, language) => {
-    // e.g. "READ_ALOUD:3", or "TRANSLATED:3:Chinese", "SHADOW:3"
+    // For example: "READ_ALOUD:1", "TRANSLATED:1:Chinese", "SHADOW:4"
     return language
       ? `${action}:${day}:${language}`
       : `${action}:${day}`;
@@ -175,16 +175,16 @@ function GeneratedStoryPage() {
 
   /**
    * ========== Reusable TTS Generation function ==========
-   * Takes text, voice, etc. to generate
    */
   const generateTtsSequence = async (text, voice, isShadow = false) => {
-    // If shadow reading, we do multiple sentence calls
+    // If shadow reading, do multiple sentence calls
     if (isShadow) {
       const sentences = getSentences(text);
       const sequence = [];
       for (let sentence of sentences) {
         const wordsCount = sentence.trim().split(/\s+/).length;
         const pauseDuration = wordsCount * 200; // tune as needed
+
         const response = await axios.post(
           `${backendUrl}/api/tts`,
           { text: sentence, voice },
@@ -232,7 +232,7 @@ function GeneratedStoryPage() {
       return;
     }
 
-    // Otherwise, create a new entry with status = 'pending'
+    // Otherwise, create a new entry with status pending
     setTtsCache((prev) => ({
       ...prev,
       [cacheKey]: { status: 'pending', sequence: null },
@@ -244,7 +244,7 @@ function GeneratedStoryPage() {
       const text = `Day ${dayItem.day}: ${dayItem.content}`;
       const sequence = await generateTtsSequence(text, selectedVoice);
 
-      // Mark done
+      // Mark as done
       setTtsCache((prev) => ({
         ...prev,
         [cacheKey]: { status: 'done', sequence },
@@ -397,7 +397,7 @@ function GeneratedStoryPage() {
   };
 
   /**
-   * ========== ADD STEPS TO voiceSteps ==========
+   * ========== ADDING STEPS TO voiceSteps ==========
    */
   const addVoiceStep = (label, cacheKey) => {
     const newStep = {
@@ -426,6 +426,7 @@ function GeneratedStoryPage() {
       const entry = ttsCache[step.cacheKey];
       return entry && entry.status === 'done';
     });
+
     // Flatten
     const combinedSequence = doneSteps.flatMap((step) => ttsCache[step.cacheKey].sequence);
 
@@ -815,4 +816,3 @@ function GeneratedStoryPage() {
 }
 
 export default GeneratedStoryPage;
-
