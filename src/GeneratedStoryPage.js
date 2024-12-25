@@ -10,7 +10,10 @@ import {
   MenuItem,
   ButtonGroup,
   TextField,
-  MenuItem as TextFieldMenuItem
+  MenuItem as TextFieldMenuItem,
+  Select,
+  FormControl,
+  InputLabel
 } from '@mui/material';
 import axios from 'axios';
 
@@ -18,21 +21,30 @@ function GeneratedStoryPage() {
   const location = useLocation();
   const { stories } = location.state || {};
 
+  // Keep track of which day index is currently displayed
+  const [currentDayIndex, setCurrentDayIndex] = useState(0);
+
+  // TTS + Audio states
   const [selectedVoice, setSelectedVoice] = useState('en-US-JennyNeural');
   const [selectedTranslationLanguage, setSelectedTranslationLanguage] = useState('Chinese');
-  const [audioSequence, setAudioSequence] = useState([]); // Array of {type:'audio', url:'...', pauseDuration: number}
+  const [audioSequence, setAudioSequence] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
+
+  // Loading states
   const [loading, setLoading] = useState(false);
   const [shadowLoading, setShadowLoading] = useState(false);
   const [translateLoading, setTranslateLoading] = useState(false);
+
+  // Error and translation data
   const [error, setError] = useState('');
-  const [translatedStories, setTranslatedStories] = useState([]);
+  const [translatedText, setTranslatedText] = useState(''); // Single day translation
 
   // For our "Translate" button’s pop-up menu
   const [translateAnchorEl, setTranslateAnchorEl] = useState(null);
 
+  // Audio references
   const audioRef = useRef(null);
   const pauseTimeoutIdRef = useRef(null);
   const wasInPauseRef = useRef(false);
@@ -42,39 +54,76 @@ function GeneratedStoryPage() {
     process.env.REACT_APP_BACKEND_URL ||
     'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
 
+  // Helper to split text into sentences
   const getSentences = (text) => {
     return text.match(/[^\.!\?]+[\.!\?]+/g) || [];
   };
 
-  const handleReadAloud = async () => {
-    setLoading(true);
-    setError('');
+  /**
+   * ========== DAY NAVIGATION ==========
+   */
+  const handlePreviousDay = () => {
+    if (!stories) return;
+    setCurrentDayIndex((prev) => Math.max(0, prev - 1));
+    resetAudioState();
+  };
+
+  const handleNextDay = () => {
+    if (!stories) return;
+    setCurrentDayIndex((prev) => Math.min(stories.length - 1, prev + 1));
+    resetAudioState();
+  };
+
+  const handleJumpToDay = (dayIndex) => {
+    setCurrentDayIndex(dayIndex);
+    resetAudioState();
+  };
+
+  // Reset audio & translation state on day switch
+  const resetAudioState = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    if (pauseTimeoutIdRef.current) {
+      clearTimeout(pauseTimeoutIdRef.current);
+      pauseTimeoutIdRef.current = null;
+    }
     setAudioSequence([]);
     setIsPlaying(false);
     setIsPaused(false);
     setCurrentAudioIndex(0);
+    setError('');
+    setTranslatedText('');
+  };
+
+  /**
+   * ========== READ ALOUD (ONE DAY ONLY) ==========
+   */
+  const handleReadAloud = async () => {
+    if (!stories || !stories[currentDayIndex]) return;
+    setLoading(true);
+    setError('');
+    resetAudioState();
 
     try {
-      const audioPromises = stories.map(async (storyItem) => {
-        const response = await axios.post(
-          `${backendUrl}/api/tts`,
-          {
-            text: `Day ${storyItem.day}: ${storyItem.content}`,
-            voice: selectedVoice,
-          },
-          { responseType: 'blob' }
-        );
+      const dayItem = stories[currentDayIndex];
+      const response = await axios.post(
+        `${backendUrl}/api/tts`,
+        {
+          text: `Day ${dayItem.day}: ${dayItem.content}`,
+          voice: selectedVoice,
+        },
+        { responseType: 'blob' }
+      );
 
-        if (!response.data) {
-          throw new Error('Failed to retrieve audio data from server.');
-        }
+      if (!response.data) {
+        throw new Error('Failed to retrieve audio data from server.');
+      }
 
-        const audioUrl = URL.createObjectURL(response.data);
-        return { type: 'audio', url: audioUrl, pauseDuration: 0 };
-      });
-
-      const sequence = await Promise.all(audioPromises);
-      setAudioSequence(sequence);
+      const audioUrl = URL.createObjectURL(response.data);
+      setAudioSequence([{ type: 'audio', url: audioUrl, pauseDuration: 0 }]);
     } catch (err) {
       console.error('Error:', err.message);
       setError('Error generating speech audio.');
@@ -83,39 +132,30 @@ function GeneratedStoryPage() {
     }
   };
 
+  /**
+   * ========== TRANSLATION (ONE DAY ONLY) ==========
+   */
   const handleTranslate = async () => {
+    if (!stories || !stories[currentDayIndex]) return;
     setTranslateLoading(true);
     setError('');
-    setTranslatedStories([]);
-    setAudioSequence([]);
-    setIsPlaying(false);
-    setIsPaused(false);
-    setCurrentAudioIndex(0);
+    setTranslatedText('');
+    resetAudioState();
 
     try {
-      const translated = [];
-      for (let storyItem of stories) {
-        const sentences = getSentences(storyItem.content);
-        const translatedSentences = [];
+      const { content } = stories[currentDayIndex];
+      const sentences = getSentences(content);
+      const translatedSentences = [];
 
-        for (let sentence of sentences) {
-          const translationPrompt = `Translate the following sentence to ${selectedTranslationLanguage}:\n\n"${sentence}"\n\nProvide only the translated sentence.`;
-          const translationRes = await axios.post(`${backendUrl}/api/chat`, {
-            prompt: translationPrompt,
-          });
-
-          const translatedSentence = translationRes.data.choices[0].message.content.trim();
-          translatedSentences.push(translatedSentence);
-        }
-
-        translated.push({
-          day: storyItem.day,
-          original: storyItem.content,
-          translated: translatedSentences.join(' '),
+      for (let sentence of sentences) {
+        const translationPrompt = `Translate the following sentence to ${selectedTranslationLanguage}:\n\n"${sentence}"\n\nProvide only the translated sentence.`;
+        const translationRes = await axios.post(`${backendUrl}/api/chat`, {
+          prompt: translationPrompt,
         });
+        translatedSentences.push(translationRes.data.choices[0].message.content.trim());
       }
 
-      setTranslatedStories(translated);
+      setTranslatedText(translatedSentences.join(' '));
     } catch (err) {
       console.error('Error:', err.message);
       setError('Error translating the story.');
@@ -124,20 +164,62 @@ function GeneratedStoryPage() {
     }
   };
 
+  /**
+   * ========== GENERATE VOICE FOR TRANSLATED TEXT (ONE DAY ONLY) ==========
+   */
   const handleGenerateTranslatedVoice = async () => {
+    if (!translatedText) return;
     setTranslateLoading(true);
     setError('');
-    setAudioSequence([]);
-    setIsPlaying(false);
-    setIsPaused(false);
-    setCurrentAudioIndex(0);
+    resetAudioState();
 
     try {
-      const audioPromises = translatedStories.map(async (storyItem) => {
+      const dayItem = stories[currentDayIndex];
+      const response = await axios.post(
+        `${backendUrl}/api/tts`,
+        {
+          text: `Day ${dayItem.day}: ${translatedText}`,
+          voice: selectedVoice,
+        },
+        { responseType: 'blob' }
+      );
+
+      if (!response.data) {
+        throw new Error('Failed to retrieve audio data from server.');
+      }
+
+      const audioUrl = URL.createObjectURL(response.data);
+      setAudioSequence([{ type: 'audio', url: audioUrl, pauseDuration: 0 }]);
+    } catch (err) {
+      console.error('Error:', err.message);
+      setError('Error generating translated speech audio.');
+    } finally {
+      setTranslateLoading(false);
+    }
+  };
+
+  /**
+   * ========== SHADOW READING (ONE DAY ONLY) ==========
+   */
+  const handleShadowReading = async () => {
+    if (!stories || !stories[currentDayIndex]) return;
+    setShadowLoading(true);
+    setError('');
+    resetAudioState();
+
+    try {
+      const sequence = [];
+      const { content } = stories[currentDayIndex];
+      const sentences = getSentences(content);
+
+      for (let sentence of sentences) {
+        const wordsCount = sentence.trim().split(/\s+/).length;
+        const pauseDuration = wordsCount * 200; // adjust as needed
+
         const response = await axios.post(
           `${backendUrl}/api/tts`,
           {
-            text: `Day ${storyItem.day}: ${storyItem.translated}`,
+            text: sentence,
             voice: selectedVoice,
           },
           { responseType: 'blob' }
@@ -148,54 +230,7 @@ function GeneratedStoryPage() {
         }
 
         const audioUrl = URL.createObjectURL(response.data);
-        return { type: 'audio', url: audioUrl, pauseDuration: 0 };
-      });
-
-      const sequence = await Promise.all(audioPromises);
-      setAudioSequence(sequence);
-    } catch (err) {
-      console.error('Error:', err.message);
-      setError('Error generating translated speech audio.');
-    } finally {
-      setTranslateLoading(false);
-    }
-  };
-
-  // In shadow reading, we create a sequence of (audio, pause) pairs.
-  // The pause duration is based on sentence length (e.g., 200ms per word).
-  const handleShadowReading = async () => {
-    setShadowLoading(true);
-    setError('');
-    setAudioSequence([]);
-    setIsPlaying(false);
-    setIsPaused(false);
-    setCurrentAudioIndex(0);
-
-    try {
-      const sequence = [];
-      for (let storyItem of stories) {
-        const sentences = getSentences(storyItem.content);
-        for (let sentence of sentences) {
-          const wordsCount = sentence.trim().split(/\s+/).length;
-          const pauseDuration = wordsCount * 200; // Adjust as needed
-
-          const response = await axios.post(
-            `${backendUrl}/api/tts`,
-            {
-              text: sentence,
-              voice: selectedVoice,
-            },
-            { responseType: 'blob' }
-          );
-
-          if (!response.data) {
-            throw new Error('Failed to retrieve audio data from server.');
-          }
-
-          const audioUrl = URL.createObjectURL(response.data);
-          // Each entry includes the audio and a calculated pause after it
-          sequence.push({ type: 'audio', url: audioUrl, pauseDuration });
-        }
+        sequence.push({ type: 'audio', url: audioUrl, pauseDuration });
       }
 
       setAudioSequence(sequence);
@@ -207,6 +242,9 @@ function GeneratedStoryPage() {
     }
   };
 
+  /**
+   * ========== AUDIO PLAYBACK CONTROLS ==========
+   */
   const handlePlayStories = () => {
     if (audioSequence.length > 0) {
       setIsPlaying(true);
@@ -234,21 +272,17 @@ function GeneratedStoryPage() {
       const newAudio = new Audio(segment.url);
       audioRef.current = newAudio;
 
-      newAudio
-        .play()
-        .catch((error) => {
-          console.error('Error playing audio:', error);
-          setError('Error playing audio.');
-          setIsPlaying(false);
-        });
+      newAudio.play().catch((error) => {
+        console.error('Error playing audio:', error);
+        setError('Error playing audio.');
+        setIsPlaying(false);
+      });
 
       newAudio.onended = () => {
         audioRef.current = null;
         if (isPaused) {
-          // If paused right after ended, wait for resume
           return;
         }
-
         // After audio ends, do a pause
         doPauseThenNext(index, segment.pauseDuration);
       };
@@ -256,7 +290,6 @@ function GeneratedStoryPage() {
   };
 
   const doPauseThenNext = (index, pauseDuration) => {
-    // If no pause needed, just move on
     if (pauseDuration <= 0) {
       const nextIndex = index + 1;
       setCurrentAudioIndex(nextIndex);
@@ -265,25 +298,20 @@ function GeneratedStoryPage() {
     }
 
     if (isPaused) {
-      // If paused right here, store the pause
       wasInPauseRef.current = true;
       currentPauseDurationRef.current = pauseDuration;
       return;
     }
 
-    // Not paused, set a timeout for the pause
     wasInPauseRef.current = false;
     currentPauseDurationRef.current = pauseDuration;
 
     pauseTimeoutIdRef.current = setTimeout(() => {
       pauseTimeoutIdRef.current = null;
       if (isPaused) {
-        // If user paused during timeout
         wasInPauseRef.current = true;
         return;
       }
-
-      // Move to next index after pause
       const nextIndex = index + 1;
       setCurrentAudioIndex(nextIndex);
       playNextSegment(nextIndex);
@@ -306,6 +334,8 @@ function GeneratedStoryPage() {
   };
 
   const handlePauseResume = () => {
+    if (!isPlaying && !isPaused) return;
+
     if (!isPaused) {
       // Pause
       setIsPaused(true);
@@ -338,7 +368,7 @@ function GeneratedStoryPage() {
             playNextSegment(nextIndex);
           }, currentPauseDurationRef.current);
         } else {
-          // Otherwise, just continue
+          // Otherwise, just continue from next
           const nextIndex = currentAudioIndex;
           playNextSegment(nextIndex);
         }
@@ -346,7 +376,9 @@ function GeneratedStoryPage() {
     }
   };
 
-  // Button menu handlers for translation
+  /**
+   * ========== TRANSLATE MENU HANDLERS ==========
+   */
   const handleTranslateMenuClick = (event) => {
     setTranslateAnchorEl(event.currentTarget);
   };
@@ -358,49 +390,86 @@ function GeneratedStoryPage() {
     }
   };
 
+  if (!stories || stories.length === 0) {
+    return (
+      <Container maxWidth="md" style={{ marginTop: '75px' }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          No stories to display.
+        </Typography>
+      </Container>
+    );
+  }
+
+  const currentStory = stories[currentDayIndex];
+
   return (
     <Container maxWidth="md" style={{ marginTop: '75px' }}>
       <Box mt={4}>
         <Typography variant="h4" component="h1" gutterBottom>
-          Your Generated Story
+          Your Generated Story (Day {currentStory.day})
         </Typography>
-        {stories &&
-          stories.length > 0 &&
-          stories.map((storyItem) => (
-            <Box
-              key={storyItem.day}
-              mt={2}
-              p={2}
-              bgcolor="#f5f5f5"
-              borderRadius={4}
-            >
-              <Typography variant="h6">Day {storyItem.day}:</Typography>
-              <Typography variant="body1" style={{ whiteSpace: 'pre-line' }}>
-                {storyItem.content}
-              </Typography>
-            </Box>
-          ))}
 
-        {/* Display Translated Stories */}
-        {translatedStories.length > 0 &&
-          translatedStories.map((storyItem) => (
-            <Box
-              key={`translated-${storyItem.day}`}
-              mt={2}
-              p={2}
-              bgcolor="#e8f5e9"
-              borderRadius={4}
+        {/** ========== TABLE OF CONTENTS ========== */}
+        <Box mb={2} display="flex" alignItems="center">
+          <Typography variant="body1" style={{ marginRight: '8px' }}>
+            Jump to Day:
+          </Typography>
+          <FormControl size="small">
+            <InputLabel>Day</InputLabel>
+            <Select
+              value={currentDayIndex}
+              label="Day"
+              onChange={(e) => handleJumpToDay(e.target.value)}
+              style={{ width: 100 }}
             >
-              <Typography variant="h6">
-                Day {storyItem.day} (Translated):
-              </Typography>
-              <Typography variant="body1" style={{ whiteSpace: 'pre-line' }}>
-                {storyItem.translated}
-              </Typography>
-            </Box>
-          ))}
+              {stories.map((s, idx) => (
+                <MenuItem key={s.day} value={idx}>
+                  {s.day}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
 
-        {/* Voice selection remains as-is */}
+        {/** ========== STORY NAVIGATION BUTTONS ========== */}
+        <Box mb={2} display="flex" justifyContent="space-between">
+          <Button
+            variant="outlined"
+            disabled={currentDayIndex === 0}
+            onClick={handlePreviousDay}
+          >
+            ← Previous Day
+          </Button>
+          <Button
+            variant="outlined"
+            disabled={currentDayIndex === stories.length - 1}
+            onClick={handleNextDay}
+          >
+            Next Day →
+          </Button>
+        </Box>
+
+        {/** ========== CURRENT DAY CONTENT ========== */}
+        <Box mt={2} p={2} bgcolor="#f5f5f5" borderRadius={4}>
+          <Typography variant="h6">Day {currentStory.day}:</Typography>
+          <Typography variant="body1" style={{ whiteSpace: 'pre-line' }}>
+            {currentStory.content}
+          </Typography>
+        </Box>
+
+        {/** If we have a translation for this day, display it */}
+        {translatedText && (
+          <Box mt={2} p={2} bgcolor="#e8f5e9" borderRadius={4}>
+            <Typography variant="h6">
+              Day {currentStory.day} (Translated to {selectedTranslationLanguage}):
+            </Typography>
+            <Typography variant="body1" style={{ whiteSpace: 'pre-line' }}>
+              {translatedText}
+            </Typography>
+          </Box>
+        )}
+
+        {/** ========== VOICE SELECTION ========== */}
         <TextField
           select
           fullWidth
@@ -421,38 +490,39 @@ function GeneratedStoryPage() {
           <TextFieldMenuItem value="zh-CN-YunxiNeural">Yunxi (Chinese)</TextFieldMenuItem>
         </TextField>
 
+        {/** ========== ACTION BUTTONS ========== */}
         <Box display="flex" flexDirection="column" alignItems="flex-start" mt={2}>
-          {/* Read Aloud Button */}
+          {/** Read Aloud Button */}
           <Button
             variant="contained"
             color="primary"
             onClick={handleReadAloud}
-            disabled={loading || !stories || stories.length === 0}
+            disabled={loading}
             fullWidth
             style={{ marginBottom: '16px' }}
           >
-            {loading ? 'Generating Voice...' : 'Read Aloud'}
+            {loading ? 'Generating Voice...' : 'Read Aloud (This Day)'}
           </Button>
 
-          {/* Combined Translate Button + Language Menu */}
+          {/** Combined Translate Button + Language Menu */}
           <ButtonGroup
             variant="contained"
             color="secondary"
-            disabled={translateLoading || !stories || stories.length === 0}
+            disabled={translateLoading}
             style={{ marginBottom: '16px' }}
             fullWidth
           >
             <Button onClick={handleTranslate}>
               {translateLoading
                 ? 'Translating...'
-                : `Translate to ${selectedTranslationLanguage}`}
+                : `Translate to ${selectedTranslationLanguage} (This Day)`}
             </Button>
             <Button size="small" onClick={handleTranslateMenuClick}>
               ▼
             </Button>
           </ButtonGroup>
 
-          {/* The actual Menu to pick the translation language */}
+          {/** The actual Menu to pick the translation language */}
           <Menu
             anchorEl={translateAnchorEl}
             open={Boolean(translateAnchorEl)}
@@ -465,34 +535,34 @@ function GeneratedStoryPage() {
             <MenuItem onClick={() => handleTranslateMenuClose('Japanese')}>Japanese</MenuItem>
           </Menu>
 
-          {/* Generate Voice for Translated Stories */}
-          {translatedStories.length > 0 && (
+          {/** Generate Voice for Translated Story */}
+          {translatedText && (
             <Button
               variant="contained"
               color="success"
               onClick={handleGenerateTranslatedVoice}
-              disabled={translateLoading || translatedStories.length === 0}
+              disabled={translateLoading || !translatedText}
               fullWidth
               style={{ marginBottom: '16px' }}
             >
               {translateLoading
                 ? 'Generating Translated Voice...'
-                : 'Generate Voice for Translated Story'}
+                : 'Generate Voice for Translated Text (This Day)'}
             </Button>
           )}
 
-          {/* Shadow Reading Button */}
+          {/** Shadow Reading Button */}
           <Button
             variant="contained"
             color="warning"
             onClick={handleShadowReading}
-            disabled={shadowLoading || !stories || stories.length === 0}
+            disabled={shadowLoading}
             fullWidth
           >
-            {shadowLoading ? 'Generating Shadow Reading...' : 'Shadow Reading'}
+            {shadowLoading ? 'Generating Shadow Reading...' : 'Shadow Reading (This Day)'}
           </Button>
 
-          {/* Playback controls (Play, Pause/Resume, Stop) */}
+          {/** Playback controls (Play, Pause/Resume, Stop) */}
           <Box display="flex" alignItems="center" mt={2} width="100%">
             <Button
               variant="contained"
@@ -532,14 +602,14 @@ function GeneratedStoryPage() {
           </Box>
         </Box>
 
-        {/* Loading Indicators */}
+        {/** Loading Indicators */}
         {(loading || translateLoading || shadowLoading) && (
           <Box mt={2}>
             <CircularProgress />
           </Box>
         )}
 
-        {/* Error Message */}
+        {/** Error Message */}
         {error && (
           <Box mt={2} p={2} bgcolor="#ffebee" borderRadius={4}>
             <Typography color="error" variant="body1">
