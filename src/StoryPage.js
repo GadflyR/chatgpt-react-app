@@ -13,7 +13,7 @@ import {
   CircularProgress,
   MenuItem,
 } from '@mui/material';
-
+import { v4 as uuidv4 } from 'uuid'; // For generating a unique storyId
 import './App.css'; // Ensure this includes the .Subtitle class for your custom font
 
 function StoryPage() {
@@ -21,7 +21,7 @@ function StoryPage() {
   const { currentUser } = useAuth();
 
   // --------------------- SUGGESTION ARRAYS ---------------------
-  // Only for text fields
+  // You can customize these as desired.
   const titleSuggestions = [
     "A Brave Adventure",
     "Midnight in the Woods",
@@ -72,8 +72,7 @@ function StoryPage() {
     "1000-1200",
   ];
 
-  // --------------------- INDEX STATES ---------------------
-  // Only for text fields
+  // --------------------- INDEX STATES (for cycling suggestions) ---------------------
   const [titleIndex, setTitleIndex] = useState(0);
   const [timeIndex, setTimeIndex] = useState(0);
   const [placeIndex, setPlaceIndex] = useState(0);
@@ -83,7 +82,7 @@ function StoryPage() {
   const [storyLengthIndex, setStoryLengthIndex] = useState(0);
 
   // --------------------- FIELD STATES ---------------------
-  // All fields optional:
+  // Retrieve from localStorage on mount, so user doesn’t lose input on refresh
   const [storyLanguage, setStoryLanguage] = useState(
     () => localStorage.getItem('storyLanguage') || ''
   );
@@ -119,7 +118,7 @@ function StoryPage() {
     () => localStorage.getItem('mainStoryline') || ''
   );
 
-  // --------------------- LOADING / ERROR ---------------------
+  // --------------------- LOADING / ERROR STATES ---------------------
   const [loading, setLoading] = useState(false);
   const [currentDay, setCurrentDay] = useState(0);
   const [error, setError] = useState('');
@@ -129,7 +128,7 @@ function StoryPage() {
     process.env.REACT_APP_BACKEND_URL ||
     'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
 
-  // --------------------- LOCAL STORAGE EFFECTS ---------------------
+  // --------------------- Local Storage Effects ---------------------
   useEffect(() => {
     localStorage.setItem('storyLanguage', storyLanguage);
   }, [storyLanguage]);
@@ -220,18 +219,15 @@ function StoryPage() {
       return "Keep it around 300 words.";
     }
     if (input.includes("-")) {
-      // example "300-500"
       const [minRaw, maxRaw] = input.split("-").map((str) => str.trim());
       const minVal = parseInt(minRaw, 10);
       const maxVal = parseInt(maxRaw, 10);
       if (!isNaN(minVal) && !isNaN(maxVal)) {
         return `Try to keep it between ${minVal} and ${maxVal} words.`;
       } else {
-        // fallback
         return `Try to keep it around ${input} words.`;
       }
     }
-    // single number
     return `Try to keep it around ${input.trim()} words.`;
   };
 
@@ -247,6 +243,9 @@ function StoryPage() {
     const generatedStories = [];
 
     try {
+      // Generate a unique storyId for the entire multi-day story
+      const storyId = uuidv4();
+
       // If user left numDays empty, default to 1
       const totalDays = numDays ? parseInt(numDays, 10) : 1;
 
@@ -257,7 +256,7 @@ function StoryPage() {
         if (day === 1) {
           prompt = 'Write a story';
 
-          // If user specified language or difficulty
+          // Language / difficulty
           if (storyLanguage.trim()) {
             prompt += ` in ${storyLanguage.toLowerCase()}`;
           }
@@ -300,9 +299,9 @@ function StoryPage() {
           // Story length
           prompt += '. ' + getLengthInstruction(storyLength);
         } else {
-          // Subsequent Days
+          // Day 2 or later
           if (previousStory.length > 1500) {
-            // Summarize if too long
+            // Summarize to keep prompt shorter
             const summaryPrompt = `Summarize the following story in 200 words:\n\n${previousStory}`;
             const summaryRes = await axios.post(`${backendUrl}/api/chat`, {
               prompt: summaryPrompt,
@@ -312,8 +311,8 @@ function StoryPage() {
 
           prompt += `Continue the following story into Day ${day}:\n\n${previousStory}\n\n`;
 
-          // Language / Difficulty continuing
-          if (storyLanguage.trim() || languageDifficulty.trim()) {
+          // Keep language / difficulty consistent
+          if (languageDifficulty.trim() || storyLanguage.trim()) {
             prompt += 'Ensure it remains';
             if (languageDifficulty.trim()) {
               prompt += ` ${languageDifficulty.toLowerCase()} difficulty`;
@@ -336,7 +335,7 @@ function StoryPage() {
         previousStory = assistantMessage;
       }
 
-      // If user is logged in, store in Firestore
+      // If user is logged in, store each day in Firestore with the same storyId
       if (currentUser) {
         const userStoryCollection = collection(
           db,
@@ -346,6 +345,7 @@ function StoryPage() {
         );
         for (let storyItem of generatedStories) {
           await addDoc(userStoryCollection, {
+            storyId,             // <-- The crucial line for grouping
             day: storyItem.day,
             content: storyItem.content,
             timestamp: new Date(),
@@ -368,7 +368,7 @@ function StoryPage() {
         'mainStoryline',
       ].forEach((key) => localStorage.removeItem(key));
 
-      // Navigate to GeneratedStoryPage
+      // Navigate to /generated-story with the generated text
       navigate('/generated-story', {
         state: {
           stories: generatedStories,
@@ -391,7 +391,6 @@ function StoryPage() {
   return (
     <Container maxWidth="md" sx={{ marginTop: '100px' }}>
       <Box mt={4}>
-        {/* Use your custom font for the heading */}
         <div className="Subtitle">Generate a Story Series</div>
 
         <Box component="form" onSubmit={handleGenerateStory} mb={2}>
@@ -406,7 +405,7 @@ function StoryPage() {
               Basic Options
             </Typography>
             <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
-              {/* Story Language (Select) */}
+              {/* Story Language */}
               <TextField
                 fullWidth
                 select
@@ -416,17 +415,16 @@ function StoryPage() {
                 variant="outlined"
                 margin="normal"
               >
-                <MenuItem value="">None</MenuItem> {/* Optional: Allow clearing the field */}
+                <MenuItem value="">None</MenuItem>
                 <MenuItem value="English">English</MenuItem>
                 <MenuItem value="Spanish">Spanish</MenuItem>
                 <MenuItem value="Chinese">Chinese</MenuItem>
                 <MenuItem value="French">French</MenuItem>
                 <MenuItem value="German">German</MenuItem>
                 <MenuItem value="Japanese">Japanese</MenuItem>
-                {/* Add more languages as needed */}
               </TextField>
 
-              {/* Number of Days (Number Input) */}
+              {/* Number of Days */}
               <TextField
                 fullWidth
                 label="Number of Days"
@@ -440,7 +438,7 @@ function StoryPage() {
             </Box>
           </Box>
 
-          {/* OPTIONAL */}
+          {/* OPTIONAL FIELDS */}
           <Typography variant="h6" gutterBottom>
             Optional:
           </Typography>
@@ -461,7 +459,7 @@ function StoryPage() {
               gap={3}
               mb={3}
             >
-              {/* Title (Text) with onKeyDown for suggestions */}
+              {/* Title */}
               <TextField
                 fullWidth
                 label="Title"
@@ -473,7 +471,7 @@ function StoryPage() {
                 margin="normal"
               />
 
-              {/* Story Type (Select) */}
+              {/* Story Type */}
               <TextField
                 fullWidth
                 select
@@ -483,20 +481,18 @@ function StoryPage() {
                 variant="outlined"
                 margin="normal"
               >
-                <MenuItem value="">None</MenuItem> {/* Optional: Allow clearing the field */}
-                { /* Removed storyTypeSuggestions array references */}
+                <MenuItem value="">None</MenuItem>
                 <MenuItem value="Adventure">Adventure</MenuItem>
                 <MenuItem value="Mystery">Mystery</MenuItem>
                 <MenuItem value="Romance">Romance</MenuItem>
                 <MenuItem value="Fantasy">Fantasy</MenuItem>
                 <MenuItem value="Science Fiction">Science Fiction</MenuItem>
                 <MenuItem value="Horror">Horror</MenuItem>
-                {/* Add more types as needed */}
               </TextField>
             </Box>
 
             <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
-              {/* Time (Text) with onKeyDown */}
+              {/* Time */}
               <TextField
                 fullWidth
                 label="Time"
@@ -508,7 +504,7 @@ function StoryPage() {
                 margin="normal"
               />
 
-              {/* Place (Text) with onKeyDown */}
+              {/* Place */}
               <TextField
                 fullWidth
                 label="Place"
@@ -533,7 +529,7 @@ function StoryPage() {
               Main Character
             </Typography>
             <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
-              {/* Character Name (Text) with onKeyDown */}
+              {/* Character Name */}
               <TextField
                 fullWidth
                 label="Character Name"
@@ -545,7 +541,7 @@ function StoryPage() {
                 margin="normal"
               />
 
-              {/* Protagonist Characteristics (Text) with onKeyDown */}
+              {/* Protagonist */}
               <TextField
                 fullWidth
                 label="Protagonist Characteristics"
@@ -592,7 +588,7 @@ function StoryPage() {
               Difficulty & Story Length
             </Typography>
             <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
-              {/* Language Difficulty (Select) */}
+              {/* Language Difficulty */}
               <TextField
                 fullWidth
                 select
@@ -602,13 +598,13 @@ function StoryPage() {
                 variant="outlined"
                 margin="normal"
               >
-                <MenuItem value="">None</MenuItem> {/* Optional: Allow clearing the field */}
+                <MenuItem value="">None</MenuItem>
                 <MenuItem value="Easy">Easy</MenuItem>
                 <MenuItem value="Intermediate">Intermediate</MenuItem>
                 <MenuItem value="Advanced">Advanced</MenuItem>
               </TextField>
 
-              {/* Story Length (Text) with onKeyDown */}
+              {/* Story Length */}
               <TextField
                 fullWidth
                 label="Story Length"
