@@ -14,14 +14,14 @@ import {
   MenuItem,
 } from '@mui/material';
 
-import './App.css';
+import './App.css'; // Suppose this has the .Subtitle class for your custom font
 
 function StoryPage() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
   // ----------------- State -----------------
-  // All fields are optional now:
+  // All fields are optional
   const [storyLanguage, setStoryLanguage] = useState(
     () => localStorage.getItem('storyLanguage') || ''
   );
@@ -43,12 +43,8 @@ function StoryPage() {
   const [storyType, setStoryType] = useState(
     () => localStorage.getItem('storyType') || ''
   );
-  const [time, setTime] = useState(
-    () => localStorage.getItem('time') || ''
-  );
-  const [place, setPlace] = useState(
-    () => localStorage.getItem('place') || ''
-  );
+  const [time, setTime] = useState(() => localStorage.getItem('time') || '');
+  const [place, setPlace] = useState(() => localStorage.getItem('place') || '');
   const [characterName, setCharacterName] = useState(
     () => localStorage.getItem('characterName') || ''
   );
@@ -68,7 +64,7 @@ function StoryPage() {
     process.env.REACT_APP_BACKEND_URL ||
     'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
 
-  // ----------------- useEffects to save localStorage -----------------
+  // ----------------- useEffects to store in localStorage -----------------
   useEffect(() => {
     localStorage.setItem('storyLanguage', storyLanguage);
   }, [storyLanguage]);
@@ -133,7 +129,6 @@ function StoryPage() {
 
         let prompt = '';
         if (day === 1) {
-          // Day 1 prompt
           prompt = 'Write a story';
 
           // If user specified language or difficulty
@@ -185,7 +180,7 @@ function StoryPage() {
         } else {
           // Subsequent Days
           if (previousStory.length > 1500) {
-            // Summarize to keep prompt shorter
+            // Summarize if too long
             const summaryPrompt = `Summarize the following story in 200 words:\n\n${previousStory}`;
             const summaryRes = await axios.post(`${backendUrl}/api/chat`, {
               prompt: summaryPrompt,
@@ -195,6 +190,7 @@ function StoryPage() {
 
           prompt = `Continue the following story into Day ${day}:\n\n${previousStory}\n\n`;
 
+          // Language / Difficulty continuing
           if (storyLanguage.trim() || languageDifficulty.trim()) {
             prompt += 'Ensure it remains';
             if (languageDifficulty.trim()) {
@@ -214,7 +210,6 @@ function StoryPage() {
           }
         }
 
-        // Call the backend
         const res = await axios.post(`${backendUrl}/api/chat`, { prompt });
         const assistantMessage = res.data.choices[0].message.content.trim();
 
@@ -277,15 +272,14 @@ function StoryPage() {
   return (
     <Container maxWidth="md" sx={{ marginTop: '100px' }}>
       <Box mt={4}>
-        <Typography variant="h4" gutterBottom>
-          Generate a Story Series
-        </Typography>
+        {/* Use your custom font for the heading */}
+        <div className="Subtitle">Generate a Story Series</div>
 
         <Box component="form" onSubmit={handleGenerateStory} mb={2}>
-          {/* Block 1: Story Language & Number of Days */}
+          {/* Block 1: Basic Options */}
           <Box
             p={2}
-            mb={2}
+            mb={3}
             borderRadius={2}
             sx={{ backgroundColor: '#f9f9f9' }}
           >
@@ -300,7 +294,7 @@ function StoryPage() {
               <TextField
                 fullWidth
                 select
-                label="Story Language optional:"
+                label="Story Language"
                 value={storyLanguage}
                 onChange={(e) => setStoryLanguage(e.target.value)}
                 variant="outlined"
@@ -316,7 +310,7 @@ function StoryPage() {
 
               <TextField
                 fullWidth
-                label="Number of Days optional:"
+                label="Number of Days"
                 type="number"
                 value={numDays}
                 onChange={(e) => setNumDays(e.target.value)}
@@ -327,12 +321,146 @@ function StoryPage() {
             </Box>
           </Box>
 
-          {/* Block 2: Language Difficulty & Story Word Limit */}
+          {/* Optional: */}
+          <Typography variant="body1" color="textSecondary" gutterBottom>
+            Optional:
+          </Typography>
+
+          {/* Merged Block: Title, Story Type, Time, Place */}
+          <Box
+            p={2}
+            mb={3}
+            borderRadius={2}
+            sx={{ backgroundColor: '#f0f0f0' }}
+          >
+            <Typography variant="h6" gutterBottom>
+              Story Setup
+            </Typography>
+            <Box
+              display="flex"
+              flexDirection={{ xs: 'column', md: 'row' }}
+              gap={2}
+              mb={2}
+            >
+              <TextField
+                fullWidth
+                label="Title"
+                placeholder="e.g., The Brave Adventurer"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                variant="outlined"
+                margin="normal"
+              />
+
+              <TextField
+                fullWidth
+                select
+                label="Story Type"
+                value={storyType}
+                onChange={(e) => setStoryType(e.target.value)}
+                variant="outlined"
+                margin="normal"
+              >
+                <MenuItem value="Adventure">Adventure</MenuItem>
+                <MenuItem value="Mystery">Mystery</MenuItem>
+                <MenuItem value="Romance">Romance</MenuItem>
+                <MenuItem value="Fantasy">Fantasy</MenuItem>
+                <MenuItem value="Science Fiction">Science Fiction</MenuItem>
+                <MenuItem value="Horror">Horror</MenuItem>
+              </TextField>
+            </Box>
+
+            <Box
+              display="flex"
+              flexDirection={{ xs: 'column', md: 'row' }}
+              gap={2}
+            >
+              <TextField
+                fullWidth
+                label="Time"
+                placeholder="e.g., medieval times, the future"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                variant="outlined"
+                margin="normal"
+              />
+
+              <TextField
+                fullWidth
+                label="Place"
+                placeholder="e.g., a small village, outer space"
+                value={place}
+                onChange={(e) => setPlace(e.target.value)}
+                variant="outlined"
+                margin="normal"
+              />
+            </Box>
+          </Box>
+
+          {/* Block: Main Character */}
+          <Box
+            p={2}
+            mb={3}
+            borderRadius={2}
+            sx={{ backgroundColor: '#f9f9f9' }}
+          >
+            <Typography variant="h6" gutterBottom>
+              Main Character
+            </Typography>
+            <Box
+              display="flex"
+              flexDirection={{ xs: 'column', md: 'row' }}
+              gap={2}
+            >
+              <TextField
+                fullWidth
+                label="Character Name"
+                placeholder="e.g., Alice, John"
+                value={characterName}
+                onChange={(e) => setCharacterName(e.target.value)}
+                variant="outlined"
+                margin="normal"
+              />
+
+              <TextField
+                fullWidth
+                label="Protagonist Characteristics"
+                placeholder="e.g., a courageous knight, a curious child"
+                value={protagonist}
+                onChange={(e) => setProtagonist(e.target.value)}
+                variant="outlined"
+                margin="normal"
+              />
+            </Box>
+          </Box>
+
+          {/* Block: Main Storyline */}
+          <Box
+            p={2}
+            mb={3}
+            borderRadius={2}
+            sx={{ backgroundColor: '#f0f0f0' }}
+          >
+            <Typography variant="h6" gutterBottom>
+              Main Storyline
+            </Typography>
+            <TextField
+              fullWidth
+              label="Main Storyline"
+              placeholder="e.g., A quest to find the lost treasure"
+              value={mainStoryline}
+              onChange={(e) => setMainStoryline(e.target.value)}
+              variant="outlined"
+              margin="normal"
+            />
+          </Box>
+
+          {/* Block: Difficulty & Word Limit */}
           <Box
             p={2}
             mb={2}
             borderRadius={2}
-            sx={{ backgroundColor: '#f0f0f0' }}
+            sx={{ backgroundColor: '#f9f9f9' }}
           >
             <Typography variant="h6" gutterBottom>
               Difficulty & Word Limit
@@ -368,145 +496,6 @@ function StoryPage() {
                 inputProps={{ min: 1 }}
               />
             </Box>
-          </Box>
-
-          {/* Block 3: Title & Story Type */}
-          <Box
-            p={2}
-            mb={2}
-            borderRadius={2}
-            sx={{ backgroundColor: '#f9f9f9' }}
-          >
-            <Typography variant="h6" gutterBottom>
-              Story Basics
-            </Typography>
-            <Box
-              display="flex"
-              flexDirection={{ xs: 'column', md: 'row' }}
-              gap={2}
-            >
-              <TextField
-                fullWidth
-                label="Title"
-                placeholder="e.g., The Brave Adventurer"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                variant="outlined"
-                margin="normal"
-              />
-
-              <TextField
-                fullWidth
-                select
-                label="Story Type"
-                value={storyType}
-                onChange={(e) => setStoryType(e.target.value)}
-                variant="outlined"
-                margin="normal"
-              >
-                <MenuItem value="Adventure">Adventure</MenuItem>
-                <MenuItem value="Mystery">Mystery</MenuItem>
-                <MenuItem value="Romance">Romance</MenuItem>
-                <MenuItem value="Fantasy">Fantasy</MenuItem>
-                <MenuItem value="Science Fiction">Science Fiction</MenuItem>
-                <MenuItem value="Horror">Horror</MenuItem>
-              </TextField>
-            </Box>
-          </Box>
-
-          {/* Block 4: Time & Place */}
-          <Box
-            p={2}
-            mb={2}
-            borderRadius={2}
-            sx={{ backgroundColor: '#f0f0f0' }}
-          >
-            <Typography variant="h6" gutterBottom>
-              Setting
-            </Typography>
-            <Box
-              display="flex"
-              flexDirection={{ xs: 'column', md: 'row' }}
-              gap={2}
-            >
-              <TextField
-                fullWidth
-                label="Time"
-                placeholder="e.g., medieval times, the future"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                variant="outlined"
-                margin="normal"
-              />
-
-              <TextField
-                fullWidth
-                label="Place"
-                placeholder="e.g., a small village, outer space"
-                value={place}
-                onChange={(e) => setPlace(e.target.value)}
-                variant="outlined"
-                margin="normal"
-              />
-            </Box>
-          </Box>
-
-          {/* Block 5: Character Name & Protagonist */}
-          <Box
-            p={2}
-            mb={2}
-            borderRadius={2}
-            sx={{ backgroundColor: '#f9f9f9' }}
-          >
-            <Typography variant="h6" gutterBottom>
-              Main Character
-            </Typography>
-            <Box
-              display="flex"
-              flexDirection={{ xs: 'column', md: 'row' }}
-              gap={2}
-            >
-              <TextField
-                fullWidth
-                label="Character Name"
-                placeholder="e.g., Alice, John"
-                value={characterName}
-                onChange={(e) => setCharacterName(e.target.value)}
-                variant="outlined"
-                margin="normal"
-              />
-
-              <TextField
-                fullWidth
-                label="Protagonist Characteristics"
-                placeholder="e.g., a courageous knight, a curious child"
-                value={protagonist}
-                onChange={(e) => setProtagonist(e.target.value)}
-                variant="outlined"
-                margin="normal"
-              />
-            </Box>
-          </Box>
-
-          {/* Block 6: Main Storyline */}
-          <Box
-            p={2}
-            mb={2}
-            borderRadius={2}
-            sx={{ backgroundColor: '#f0f0f0' }}
-          >
-            <Typography variant="h6" gutterBottom>
-              Main Storyline
-            </Typography>
-            <TextField
-              fullWidth
-              label="Main Storyline"
-              placeholder="e.g., A quest to find the lost treasure"
-              value={mainStoryline}
-              onChange={(e) => setMainStoryline(e.target.value)}
-              variant="outlined"
-              margin="normal"
-            />
           </Box>
 
           {/* Submit Button */}
