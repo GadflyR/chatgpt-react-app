@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
-import { ThemeProvider, CssBaseline, IconButton, Button, Box } from '@mui/material';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { ThemeProvider, CssBaseline, IconButton, Box } from '@mui/material';
 import { getTheme } from './theme';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
@@ -11,11 +11,12 @@ import GeneratedStoryPage from './GeneratedStoryPage';
 import Login from './Login';
 import NavBar from './NavBar';
 import PrivateRoute from './PrivateRoute';
-import HistoryPage from './HistoryPage'; // Import HistoryPage
+import HistoryPage from './HistoryPage';
 
 function App() {
   const [mode, setMode] = useState('light');
   const theme = getTheme(mode);
+
   const toggleTheme = () => {
     setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
   };
@@ -29,7 +30,7 @@ function App() {
             {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
           </IconButton>
         </NavBar>
-        <Box sx={{ display: 'flex' }}>
+        <Box sx={{ display: 'flex', height: '100vh' }}>
           {/* Button for navigating to HistoryPage */}
           <Box
             sx={{
@@ -40,7 +41,28 @@ function App() {
               padding: 2,
             }}
           >
-            <HistoryButton />
+            <Link to="/history" style={{ textDecoration: 'none' }}>
+              <Box
+                sx={{
+                  width: '90px',
+                  height: '200px',
+                  borderRadius: '10px',
+                  backgroundColor: '#1e88e5',
+                  color: 'white',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  fontWeight: 'bold',
+                  fontSize: '16px',
+                  boxShadow: '0px 4px 15px rgba(0, 0, 0, 0.2)',
+                  textAlign: 'center',
+                  transition: 'transform 0.3s, background-color 0.3s',
+                }}
+                className="history-button"
+              >
+                History
+              </Box>
+            </Link>
           </Box>
           {/* Main App Content */}
           <Box sx={{ flexGrow: 1, marginLeft: '100px' }}>
@@ -84,28 +106,6 @@ function App() {
         </Box>
       </Router>
     </ThemeProvider>
-  );
-}
-
-// History Button Component
-function HistoryButton() {
-  const navigate = useNavigate();
-
-  return (
-    <Button
-      variant="contained"
-      color="primary"
-      sx={{
-        width: '80px',
-        height: '200px',
-        borderRadius: '0 10px 10px 0',
-        textTransform: 'none',
-        fontSize: '18px',
-      }}
-      onClick={() => navigate('/history')}
-    >
-      History
-    </Button>
   );
 }
 
