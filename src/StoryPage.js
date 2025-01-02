@@ -389,7 +389,7 @@ function StoryPage() {
 
   // --------------------- RENDER ---------------------
   return (
-    <Container maxWidth="md" sx={{ marginTop: '100px' }}>
+    <Container maxWidth="lg" sx={{ marginTop: '100px' }}>
       <Box mt={4}>
         <div className="Subtitle">Generate a Story Series</div>
 
