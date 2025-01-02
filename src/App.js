@@ -9,6 +9,7 @@ import Brightness7Icon from '@mui/icons-material/Brightness7';
 import StartPage from './StartPage';
 import ChatPage from './ChatPage';
 import StoryPage from './StoryPage';
+import VoiceOptionsPage from './VoiceOptionsPage';
 import GeneratedStoryPage from './GeneratedStoryPage';
 import Login from './Login';
 import NavBar from './NavBar';
