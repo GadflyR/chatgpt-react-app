@@ -1,4 +1,3 @@
-// StoryPage.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from './AuthContext'; // Access current user
@@ -25,53 +24,53 @@ function StoryPage() {
 
   // --------------------- SUGGESTION ARRAYS ---------------------
   const titleSuggestions = [
-    "A Brave Adventure",
-    "Midnight in the Woods",
-    "The Lost City",
-    "Journey into Twilight",
-    "Shadows of the Past",
+    'A Brave Adventure',
+    'Midnight in the Woods',
+    'The Lost City',
+    'Journey into Twilight',
+    'Shadows of the Past',
   ];
   const timeSuggestions = [
-    "medieval times",
-    "the future",
-    "the roaring 1920s",
-    "prehistoric era",
-    "the year 3000",
+    'medieval times',
+    'the future',
+    'the roaring 1920s',
+    'prehistoric era',
+    'the year 3000',
   ];
   const placeSuggestions = [
-    "a small village",
-    "outer space",
-    "an underwater city",
-    "the Sahara Desert",
-    "a bustling metropolis",
+    'a small village',
+    'outer space',
+    'an underwater city',
+    'the Sahara Desert',
+    'a bustling metropolis',
   ];
   const characterNameSuggestions = [
-    "Alice",
-    "John",
-    "Kai",
-    "Maria",
-    "Luca",
+    'Alice',
+    'John',
+    'Kai',
+    'Maria',
+    'Luca',
   ];
   const protagonistSuggestions = [
-    "a courageous knight",
-    "a curious child",
-    "an eccentric detective",
-    "a timid librarian",
-    "a fearless astronaut",
+    'a courageous knight',
+    'a curious child',
+    'an eccentric detective',
+    'a timid librarian',
+    'a fearless astronaut',
   ];
   const mainStorylineSuggestions = [
-    "A quest to find the lost treasure",
-    "Stopping a sinister villain",
-    "A journey of self-discovery",
-    "Reuniting two estranged worlds",
-    "Unraveling a family secret",
+    'A quest to find the lost treasure',
+    'Stopping a sinister villain',
+    'A journey of self-discovery',
+    'Reuniting two estranged worlds',
+    'Unraveling a family secret',
   ];
   const storyLengthSuggestions = [
-    "300-500",
-    "500-700",
-    "800-1000",
-    "250-400",
-    "1000-1200",
+    '300-500',
+    '500-700',
+    '800-1000',
+    '250-400',
+    '1000-1200',
   ];
 
   // --------------------- INDEX STATES (for cycling suggestions) ---------------------
@@ -219,10 +218,10 @@ function StoryPage() {
   // --------------------- STORY LENGTH PARSER ---------------------
   const getLengthInstruction = (input) => {
     if (!input.trim()) {
-      return "Keep it around 300 words.";
+      return 'Keep it around 300 words.';
     }
-    if (input.includes("-")) {
-      const [minRaw, maxRaw] = input.split("-").map((str) => str.trim());
+    if (input.includes('-')) {
+      const [minRaw, maxRaw] = input.split('-').map((str) => str.trim());
       const minVal = parseInt(minRaw, 10);
       const maxVal = parseInt(maxRaw, 10);
       if (!isNaN(minVal) && !isNaN(maxVal)) {
@@ -448,7 +447,7 @@ function StoryPage() {
             p={3}
             mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#e0e0e0' }}
+            sx={{ backgroundColor: '#e1bee7' }} // Pastel purple example
           >
             <Typography variant="h6" gutterBottom>
               Basic Options
@@ -488,6 +487,7 @@ function StoryPage() {
               />
             </Box>
           </Box>
+
           {/* OPTIONAL FIELDS */}
           <Typography variant="h6" gutterBottom>
             Optional:
@@ -498,7 +498,7 @@ function StoryPage() {
             p={3}
             mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#f5f5f5' }}
+            sx={{ backgroundColor: '#f8bbd0' }} // Pastel pink example
           >
             <Typography variant="h6" gutterBottom>
               Story Setup
@@ -568,7 +568,7 @@ function StoryPage() {
             p={3}
             mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#f5f5f5' }}
+            sx={{ backgroundColor: '#c8e6c9' }} // Pastel green example
           >
             <Typography variant="h6" gutterBottom>
               Main Character
@@ -602,7 +602,7 @@ function StoryPage() {
             p={3}
             mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#f5f5f5' }}
+            sx={{ backgroundColor: '#fff9c4' }} // Pastel yellow example
           >
             <Typography variant="h6" gutterBottom>
               Main Storyline
@@ -624,7 +624,7 @@ function StoryPage() {
             p={3}
             mb={4}
             borderRadius={2}
-            sx={{ backgroundColor: '#f5f5f5' }}
+            sx={{ backgroundColor: '#b3e5fc' }} // Pastel blue example
           >
             <Typography variant="h6" gutterBottom>
               Difficulty & Story Length
@@ -670,7 +670,7 @@ function StoryPage() {
             label="Generate Story Image (DALL·E)"
           />
 
-          {/* SUBMIT BUTTON */}
+          {/* SUBMIT BUTTON (Renamed to 'Next Step') */}
           <Box display="flex" alignItems="center" mt={2}>
             <Button
               type="submit"
@@ -679,7 +679,7 @@ function StoryPage() {
               disabled={loading}
               startIcon={loading ? <CircularProgress size={20} /> : null}
             >
-              {loading ? 'Generating...' : 'Generate Story'}
+              {loading ? 'Generating...' : 'Next Step'}
             </Button>
             {loading && currentDay > 0 && (
               <Typography variant="body1" ml={2}>
