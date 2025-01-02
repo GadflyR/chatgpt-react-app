@@ -1,7 +1,15 @@
+// HistoryPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';  // or wherever your AuthContext is
 import { db } from './firebase';         // Firestore instance
-import { collection, getDocs } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  doc,
+  deleteDoc
+} from 'firebase/firestore';
 import {
   Typography,
   Container,
@@ -9,7 +17,9 @@ import {
   CircularProgress,
   Card,
   CardActionArea,
-  CardContent
+  CardContent,
+  CardActions,
+  Button
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
@@ -47,9 +57,9 @@ function HistoryPage() {
          */
         const grouped = {};
 
-        userStoriesSnapshot.forEach((doc) => {
+        userStoriesSnapshot.forEach((docSnap) => {
           // Each doc might have { storyId, day, content, timestamp }
-          const data = doc.data();
+          const data = docSnap.data();
           const { storyId, day, content, timestamp } = data;
 
           if (!storyId) {
