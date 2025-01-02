@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -9,6 +10,7 @@ const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 
+// Adjust these to match your deployment
 const allowedOrigins = [
   'https://story.ibot1.net',
   'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net',
@@ -18,10 +20,10 @@ app.use(express.static(path.join(__dirname, '../build')));
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      const msg = 'The CORS policy for this site does not allow access from that origin.';
       return callback(new Error(msg), false);
     }
     return callback(null, true);
@@ -30,11 +32,41 @@ app.use(cors({
 
 app.use(express.json());
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../build', 'index.html'));
+// =========================== NEW: DALL·E IMAGE GENERATION ROUTE ===========================
+app.post('/api/generateImage', async (req, res) => {
+  const { prompt } = req.body;
+  if (!prompt || typeof prompt !== 'string') {
+    return res.status(400).json({ error: 'Invalid prompt for image generation.' });
+  }
+
+  try {
+    const response = await axios.post(
+      'https://api.openai.com/v1/images/generations',
+      {
+        prompt, // e.g., "An epic fantasy illustration of a brave knight in a medieval city"
+        n: 1,
+        size: '512x512',
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        timeout: 30000,
+      }
+    );
+
+    // The DALL·E endpoint returns an array of images with "url" keys.
+    // We only request 1, so take data[0].url
+    const imageUrl = response.data.data[0].url;
+    res.json({ imageUrl });
+  } catch (error) {
+    console.error('Error generating image via DALL·E:', error.response ? error.response.data : error.message);
+    return res.status(500).json({ error: 'Failed to generate image.' });
+  }
 });
 
-// Route to handle OpenAI chat requests
+// =========================== OPENAI CHAT COMPLETION (GPT) ===========================
 app.post('/api/chat', async (req, res) => {
   const { prompt } = req.body;
 
@@ -46,7 +78,7 @@ app.post('/api/chat', async (req, res) => {
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: 'gpt-4o-mini', // This model name is valid
+        model: 'gpt-4o-mini', // this is the actual model
         messages: [{ role: 'user', content: prompt }],
       },
       {
@@ -69,12 +101,12 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Route to handle text-to-speech requests
+// =========================== TEXT-TO-SPEECH (Azure) ===========================
 app.post('/api/tts', async (req, res) => {
   const { text, voice } = req.body;
 
   if (!text || typeof text !== 'string') {
-    console.error('Invalid text provided.');
+    console.error('Invalid text provided for TTS.');
     return res.status(400).json({ error: 'Invalid text provided.' });
   }
 
@@ -100,16 +132,13 @@ app.post('/api/tts', async (req, res) => {
         if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
           console.log('Speech synthesis completed successfully.');
 
-          // Send the audio data back directly as a buffer
           const audioBuffer = Buffer.from(result.audioData);
-
           res.set({
             'Content-Type': 'audio/mpeg',
             'Content-Length': audioBuffer.length,
             'Cache-Control': 'no-cache',
             'Content-Disposition': `inline; filename="tts-${uuidv4()}.mp3"`,
           });
-
           res.send(audioBuffer);
         } else {
           console.error('Speech synthesis failed:', result.errorDetails);
@@ -127,6 +156,11 @@ app.post('/api/tts', async (req, res) => {
     console.error('Azure TTS API error:', error);
     res.status(500).json({ error: 'Error generating speech audio.' });
   }
+});
+
+// =========================== SERVE REACT FRONTEND ===========================
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../build', 'index.html'));
 });
 
 const PORT = process.env.PORT || 5000;

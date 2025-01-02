@@ -1,3 +1,4 @@
+// GeneratedStoryPage.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
@@ -21,9 +22,7 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import axios from 'axios';
 
-/**
- * Map from translation language to recommended voice
- */
+// Map from translation language to recommended voice
 const TRANSLATION_VOICE_MAP = {
   Chinese: 'zh-CN-XiaoxiaoNeural',
   Spanish: 'es-ES-ElviraNeural',
@@ -32,9 +31,7 @@ const TRANSLATION_VOICE_MAP = {
   Japanese: 'ja-JP-NanamiNeural',
 };
 
-/**
- * Additional multi-language voices for user selection
- */
+// Additional multi-language voices for user selection
 const ALL_AVAILABLE_VOICES = [
   { label: 'Jenny (US)', value: 'en-US-JennyNeural' },
   { label: 'Guy (US)', value: 'en-US-GuyNeural' },
@@ -54,46 +51,26 @@ const ALL_AVAILABLE_VOICES = [
 
 function GeneratedStoryPage() {
   const location = useLocation();
-  // We expect an array named "stories" from the HistoryPage
-  const { stories } = location.state || {};
+  // We expect an array named "stories" from the StoryPage, plus optional imageUrl
+  const { stories, imageUrl } = location.state || {};
   const [currentDayIndex, setCurrentDayIndex] = useState(0);
 
-  // The user-chosen voice (for normal reading or shadow reading, etc.)
+  // The user-chosen voice for read/shadow
   const [selectedVoice, setSelectedVoice] = useState('en-US-JennyNeural');
   const [selectedTranslationLanguage, setSelectedTranslationLanguage] = useState('Chinese');
 
-  /**
-   * Cache to store TTS requests by key, so we don't re-generate
-   * key: e.g. "READ_ALOUD:3", "TRANSLATED:3:Chinese", "SHADOW:3"
-   * value: {
-   *   status: 'pending' | 'done' | 'error',
-   *   sequence: [ { type: 'audio', url, pauseDuration }, ... ] or null if pending/error
-   * }
-   */
+  // Cache to store TTS requests by key
   const [ttsCache, setTtsCache] = useState({});
-
-  /**
-   * voiceSteps: array of step objects
-   * Each step references a cacheKey, plus local metadata:
-   * {
-   *   id: number, // unique
-   *   label: string,
-   *   cacheKey: string, // pointer into ttsCache
-   * }
-   *
-   * We'll look up ttsCache[cacheKey].status to see if it's done/pending/error
-   * We'll use ttsCache[cacheKey].sequence to get the audio
-   */
+  // Steps array for playback
   const [voiceSteps, setVoiceSteps] = useState([]);
-
-  // For background generation, we won't wait to start playing.  
-  // So we track the final combined audioSequence for playback at the moment user hits "Play."
+  // Combined audio sequence for current playback
   const [audioSequence, setAudioSequence] = useState([]);
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
 
-  // Loading states for UI feedback
+  // Loading states
   const [loading, setLoading] = useState(false);
   const [shadowLoading, setShadowLoading] = useState(false);
   const [translateLoading, setTranslateLoading] = useState(false);
@@ -101,10 +78,10 @@ function GeneratedStoryPage() {
   const [error, setError] = useState('');
   const [translatedText, setTranslatedText] = useState('');
 
-  // For the "Translate" button's pop-up menu
+  // For the "Translate to X" menu
   const [translateAnchorEl, setTranslateAnchorEl] = useState(null);
 
-  // Audio control
+  // Audio ref
   const audioRef = useRef(null);
   const pauseTimeoutIdRef = useRef(null);
   const wasInPauseRef = useRef(false);
@@ -114,7 +91,7 @@ function GeneratedStoryPage() {
     process.env.REACT_APP_BACKEND_URL ||
     'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
 
-  // Helper to split text into sentences
+  // Helper: split text into sentences
   const getSentences = (text) => {
     return text.match(/[^\.!\?]+[\.!\?]+/g) || [];
   };
@@ -143,10 +120,8 @@ function GeneratedStoryPage() {
     stopPlayback();
     setError('');
     setTranslatedText('');
-    // We do NOT clear voiceSteps or ttsCache so the user can reuse them if they want
   };
 
-  // Separate function to stop playback
   const stopPlayback = () => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -163,22 +138,20 @@ function GeneratedStoryPage() {
     setAudioSequence([]);
   };
 
-  /**
-   * Build a cache key for each “action type”
-   */
+  // Build a cache key for each “action type”
   const buildCacheKey = (action, day, language) => {
-    // For example: "READ_ALOUD:1", "TRANSLATED:1:Chinese", "SHADOW:4"
+    // e.g. "READ_ALOUD:1", "TRANSLATED:1:Chinese", "SHADOW:4"
     return language
       ? `${action}:${day}:${language}`
       : `${action}:${day}`;
   };
 
   /**
-   * ========== Reusable TTS Generation function ==========
+   * ========== Reusable TTS Generation ========== 
    */
   const generateTtsSequence = async (text, voice, isShadow = false) => {
-    // If shadow reading, do multiple sentence calls
     if (isShadow) {
+      // Split the text into sentences, generate audio for each, add a pause
       const sentences = getSentences(text);
       const sequence = [];
       for (let sentence of sentences) {
@@ -198,7 +171,7 @@ function GeneratedStoryPage() {
       }
       return sequence;
     } else {
-      // Normal single call
+      // Normal single TTS call
       const response = await axios.post(
         `${backendUrl}/api/tts`,
         { text, voice },
@@ -213,7 +186,7 @@ function GeneratedStoryPage() {
   };
 
   /**
-   * ========== READ ALOUD (ONE DAY) ==========
+   * ========== READ ALOUD (ONE DAY) ========== 
    */
   const handleReadAloud = async () => {
     if (!stories || !stories[currentDayIndex]) return;
@@ -223,16 +196,13 @@ function GeneratedStoryPage() {
     const dayItem = stories[currentDayIndex];
     const cacheKey = buildCacheKey('READ_ALOUD', dayItem.day);
 
-    // If we have it in cache and it's pending/done, skip re-generation
     const existing = ttsCache[cacheKey];
     if (existing && (existing.status === 'pending' || existing.status === 'done')) {
-      // Just add a new step referencing the same audio
       addVoiceStep(`Read Aloud (Day ${dayItem.day})`, cacheKey);
       setLoading(false);
       return;
     }
 
-    // Otherwise, create a new entry with status pending
     setTtsCache((prev) => ({
       ...prev,
       [cacheKey]: { status: 'pending', sequence: null },
@@ -240,11 +210,9 @@ function GeneratedStoryPage() {
     addVoiceStep(`Read Aloud (Day ${dayItem.day})`, cacheKey);
 
     try {
-      // Generate TTS
       const text = `Day ${dayItem.day}: ${dayItem.content}`;
       const sequence = await generateTtsSequence(text, selectedVoice);
 
-      // Mark as done
       setTtsCache((prev) => ({
         ...prev,
         [cacheKey]: { status: 'done', sequence },
@@ -262,7 +230,7 @@ function GeneratedStoryPage() {
   };
 
   /**
-   * ========== TRANSLATION (ONE DAY) ==========
+   * ========== TRANSLATION (ONE DAY) ========== 
    */
   const handleTranslate = async () => {
     if (!stories || !stories[currentDayIndex]) return;
@@ -294,8 +262,7 @@ function GeneratedStoryPage() {
   };
 
   /**
-   * ========== GENERATE VOICE FOR TRANSLATED TEXT ==========
-   * Auto-select voice based on the translation language
+   * ========== GENERATE VOICE FOR TRANSLATED TEXT ========== 
    */
   const handleGenerateTranslatedVoice = async () => {
     if (!stories || !stories[currentDayIndex] || !translatedText) return;
@@ -351,7 +318,7 @@ function GeneratedStoryPage() {
   };
 
   /**
-   * ========== SHADOW READING (ONE DAY) ==========
+   * ========== SHADOW READING (ONE DAY) ========== 
    */
   const handleShadowReading = async () => {
     if (!stories || !stories[currentDayIndex]) return;
@@ -397,7 +364,7 @@ function GeneratedStoryPage() {
   };
 
   /**
-   * ========== ADDING STEPS TO voiceSteps ==========
+   * ========== ADD STEP TO voiceSteps ========== 
    */
   const addVoiceStep = (label, cacheKey) => {
     const newStep = {
@@ -409,31 +376,32 @@ function GeneratedStoryPage() {
   };
 
   /**
-   * ========== DELETE A STEP ==========
+   * ========== DELETE A STEP ========== 
    */
   const handleDeleteStep = (stepId) => {
     setVoiceSteps((prev) => prev.filter((s) => s.id !== stepId));
   };
 
   /**
-   * ========== PLAY/PAUSE/STOP (ALL STEPS) ==========
+   * ========== PLAY/PAUSE/STOP (ALL STEPS) ========== 
    */
   const handlePlayAll = () => {
-    stopPlayback(); // reset previous playback
+    stopPlayback(); // reset first
 
-    // Build the combined sequence of DONE steps
+    // Build the combined sequence of steps with status=done
     const doneSteps = voiceSteps.filter((step) => {
       const entry = ttsCache[step.cacheKey];
       return entry && entry.status === 'done';
     });
-
-    // Flatten
-    const combinedSequence = doneSteps.flatMap((step) => ttsCache[step.cacheKey].sequence);
+    const combinedSequence = doneSteps.flatMap(
+      (step) => ttsCache[step.cacheKey].sequence
+    );
 
     if (combinedSequence.length === 0) {
       // no playable audio
       return;
     }
+
     setAudioSequence(combinedSequence);
     setIsPlaying(true);
     setIsPaused(false);
@@ -514,7 +482,9 @@ function GeneratedStoryPage() {
       // Resume
       setIsPaused(false);
       if (audioRef.current) {
-        audioRef.current.play().catch((err) => console.error('Error resuming audio:', err));
+        audioRef.current.play().catch((err) =>
+          console.error('Error resuming audio:', err)
+        );
       } else {
         if (wasInPauseRef.current && currentPauseDurationRef.current > 0) {
           pauseTimeoutIdRef.current = setTimeout(() => {
@@ -528,7 +498,6 @@ function GeneratedStoryPage() {
             playNextSegment(nextIndex, audioSequence);
           }, currentPauseDurationRef.current);
         } else {
-          // Continue from current index
           playNextSegment(currentAudioIndex, audioSequence);
         }
       }
@@ -536,7 +505,7 @@ function GeneratedStoryPage() {
   };
 
   /**
-   * ========== TRANSLATE MENU HANDLERS ==========
+   * ========== TRANSLATE MENU HANDLERS ========== 
    */
   const handleTranslateMenuClick = (event) => {
     setTranslateAnchorEl(event.currentTarget);
@@ -570,6 +539,18 @@ function GeneratedStoryPage() {
   return (
     <Container maxWidth="md" style={{ marginTop: '75px' }}>
       <Box mt={4}>
+
+        {/* ============= NEW: Display the generated image if we have one ============= */}
+        {imageUrl && (
+          <Box mb={2} textAlign="center">
+            <img
+              src={imageUrl}
+              alt="Generated by DALL·E"
+              style={{ maxWidth: '100%', borderRadius: '8px' }}
+            />
+          </Box>
+        )}
+
         <Typography variant="h4" component="h1" gutterBottom>
           Your Generated Story (Day {currentStory.day})
         </Typography>
@@ -633,7 +614,7 @@ function GeneratedStoryPage() {
           </Box>
         )}
 
-        {/* ======== VOICE SELECTION (For normal read/shadow) ======== */}
+        {/* ======== VOICE SELECTION ======== */}
         <TextField
           select
           fullWidth
@@ -653,7 +634,6 @@ function GeneratedStoryPage() {
 
         {/* ======== ACTION BUTTONS ======== */}
         <Box display="flex" flexDirection="column" alignItems="flex-start" mt={2}>
-          {/* Read Aloud */}
           <Button
             variant="contained"
             color="primary"
@@ -665,7 +645,6 @@ function GeneratedStoryPage() {
             {loading ? 'Generating Voice...' : 'Read Aloud (This Day)'}
           </Button>
 
-          {/* Translate + Language Menu */}
           <ButtonGroup
             variant="contained"
             color="secondary"
@@ -721,7 +700,7 @@ function GeneratedStoryPage() {
             {shadowLoading ? 'Generating Shadow Reading...' : 'Shadow Reading (This Day)'}
           </Button>
 
-          {/* PLAY/PAUSE/STOP for All Steps */}
+          {/* PLAY/PAUSE/STOP for all steps */}
           <Box display="flex" alignItems="center" mt={2} width="100%">
             <Button
               variant="contained"
@@ -796,7 +775,7 @@ function GeneratedStoryPage() {
           </Box>
         )}
 
-        {/* ======== LOADING INDICATORS & ERRORS ======== */}
+        {/* ======== LOADING & ERRORS ======== */}
         {(loading || translateLoading || shadowLoading) && (
           <Box mt={2}>
             <CircularProgress />

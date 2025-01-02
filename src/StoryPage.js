@@ -1,3 +1,4 @@
+// StoryPage.jsx
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from './AuthContext'; // Access current user
@@ -12,6 +13,8 @@ import {
   Box,
   CircularProgress,
   MenuItem,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
 import { v4 as uuidv4 } from 'uuid'; // For generating a unique storyId
 import './App.css'; // Ensure this includes the .Subtitle class for your custom font
@@ -21,7 +24,6 @@ function StoryPage() {
   const { currentUser } = useAuth();
 
   // --------------------- SUGGESTION ARRAYS ---------------------
-  // You can customize these as desired.
   const titleSuggestions = [
     "A Brave Adventure",
     "Midnight in the Woods",
@@ -82,7 +84,6 @@ function StoryPage() {
   const [storyLengthIndex, setStoryLengthIndex] = useState(0);
 
   // --------------------- FIELD STATES ---------------------
-  // Retrieve from localStorage on mount, so user doesn’t lose input on refresh
   const [storyLanguage, setStoryLanguage] = useState(
     () => localStorage.getItem('storyLanguage') || ''
   );
@@ -122,6 +123,9 @@ function StoryPage() {
   const [loading, setLoading] = useState(false);
   const [currentDay, setCurrentDay] = useState(0);
   const [error, setError] = useState('');
+
+  // --------------------- NEW: Generate Image? ---------------------
+  const [generateImage, setGenerateImage] = useState(false);
 
   // --------------------- BACKEND URL ---------------------
   const backendUrl =
@@ -177,7 +181,6 @@ function StoryPage() {
   const handleSuggestionKeyDown = (e, field) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-
       switch (field) {
         case 'title':
           setTitle(titleSuggestions[titleIndex]);
@@ -234,7 +237,6 @@ function StoryPage() {
   // --------------------- STORY GENERATION ---------------------
   const handleGenerateStory = async (e) => {
     e.preventDefault();
-
     setLoading(true);
     setError('');
     setCurrentDay(0);
@@ -335,7 +337,7 @@ function StoryPage() {
         previousStory = assistantMessage;
       }
 
-      // If user is logged in, store each day in Firestore with the same storyId
+      // If user is logged in, store each day in Firestore
       if (currentUser) {
         const userStoryCollection = collection(
           db,
@@ -345,11 +347,33 @@ function StoryPage() {
         );
         for (let storyItem of generatedStories) {
           await addDoc(userStoryCollection, {
-            storyId,             // <-- The crucial line for grouping
+            storyId, // The crucial line for grouping
             day: storyItem.day,
             content: storyItem.content,
             timestamp: new Date(),
           });
+        }
+      }
+
+      // ============= NEW: DALL·E IMAGE GENERATION (if checkbox is checked) =============
+      let storyImageUrl = null;
+      if (generateImage) {
+        try {
+          // You could feed the entire story or a short summary to DALL·E.
+          // Keep it relatively short if possible (or do a summarizing step).
+          // For example, here we feed all days:
+          const combinedText = generatedStories.map(
+            (s) => `Day ${s.day}: ${s.content}`
+          ).join('\n');
+          const imagePrompt = `Create a compelling illustration for this story:\n${combinedText}`;
+
+          const imgRes = await axios.post(`${backendUrl}/api/generateImage`, {
+            prompt: imagePrompt,
+          });
+          storyImageUrl = imgRes.data.imageUrl;
+        } catch (imgErr) {
+          console.error('Error generating story image:', imgErr);
+          // We won't fail the entire story if the image fails; just skip it
         }
       }
 
@@ -372,6 +396,7 @@ function StoryPage() {
       navigate('/generated-story', {
         state: {
           stories: generatedStories,
+          imageUrl: storyImageUrl, // NEW: pass to next page
         },
       });
     } catch (err) {
@@ -387,7 +412,6 @@ function StoryPage() {
     }
   };
 
-  // --------------------- RENDER ---------------------
   return (
     <Container maxWidth="lg" sx={{ marginTop: '100px' }}>
       <Box mt={4}>
@@ -405,7 +429,6 @@ function StoryPage() {
               Basic Options
             </Typography>
             <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
-              {/* Story Language */}
               <TextField
                 fullWidth
                 select
@@ -424,7 +447,6 @@ function StoryPage() {
                 <MenuItem value="Japanese">Japanese</MenuItem>
               </TextField>
 
-              {/* Number of Days */}
               <TextField
                 fullWidth
                 label="Number of Days"
@@ -443,7 +465,7 @@ function StoryPage() {
             Optional:
           </Typography>
 
-          {/* STORY SETUP (Light Grey) */}
+          {/* STORY SETUP */}
           <Box
             p={3}
             mb={4}
@@ -459,7 +481,6 @@ function StoryPage() {
               gap={3}
               mb={3}
             >
-              {/* Title */}
               <TextField
                 fullWidth
                 label="Title"
@@ -471,7 +492,6 @@ function StoryPage() {
                 margin="normal"
               />
 
-              {/* Story Type */}
               <TextField
                 fullWidth
                 select
@@ -492,7 +512,6 @@ function StoryPage() {
             </Box>
 
             <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
-              {/* Time */}
               <TextField
                 fullWidth
                 label="Time"
@@ -503,8 +522,6 @@ function StoryPage() {
                 variant="outlined"
                 margin="normal"
               />
-
-              {/* Place */}
               <TextField
                 fullWidth
                 label="Place"
@@ -518,7 +535,7 @@ function StoryPage() {
             </Box>
           </Box>
 
-          {/* MAIN CHARACTER (Light Grey) */}
+          {/* MAIN CHARACTER */}
           <Box
             p={3}
             mb={4}
@@ -529,7 +546,6 @@ function StoryPage() {
               Main Character
             </Typography>
             <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
-              {/* Character Name */}
               <TextField
                 fullWidth
                 label="Character Name"
@@ -540,8 +556,6 @@ function StoryPage() {
                 variant="outlined"
                 margin="normal"
               />
-
-              {/* Protagonist */}
               <TextField
                 fullWidth
                 label="Protagonist Characteristics"
@@ -555,7 +569,7 @@ function StoryPage() {
             </Box>
           </Box>
 
-          {/* MAIN STORYLINE (Light Grey) */}
+          {/* MAIN STORYLINE */}
           <Box
             p={3}
             mb={4}
@@ -577,7 +591,7 @@ function StoryPage() {
             />
           </Box>
 
-          {/* DIFFICULTY & STORY LENGTH (Light Grey) */}
+          {/* DIFFICULTY & STORY LENGTH */}
           <Box
             p={3}
             mb={4}
@@ -588,7 +602,6 @@ function StoryPage() {
               Difficulty & Story Length
             </Typography>
             <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
-              {/* Language Difficulty */}
               <TextField
                 fullWidth
                 select
@@ -604,7 +617,6 @@ function StoryPage() {
                 <MenuItem value="Advanced">Advanced</MenuItem>
               </TextField>
 
-              {/* Story Length */}
               <TextField
                 fullWidth
                 label="Story Length"
@@ -617,6 +629,18 @@ function StoryPage() {
               />
             </Box>
           </Box>
+
+          {/* NEW: Checkbox for generating an image with DALL·E */}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={generateImage}
+                onChange={(e) => setGenerateImage(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="Generate Story Image (DALL·E)"
+          />
 
           {/* SUBMIT BUTTON */}
           <Box display="flex" alignItems="center" mt={2}>
@@ -637,7 +661,6 @@ function StoryPage() {
           </Box>
         </Box>
 
-        {/* ERROR MESSAGE */}
         {error && (
           <Box mt={2} p={2} bgcolor="#ffebee" borderRadius={2}>
             <Typography color="error" variant="body1">
