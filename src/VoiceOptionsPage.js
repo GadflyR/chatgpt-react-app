@@ -121,7 +121,7 @@ function VoiceOptionsPage() {
       };
 
       // Example call to your backend that returns { stories: [...], imageUrl }
-      const response = await axios.post(`${backendUrl}/api/generateStory`, payload);
+      const response = await axios.post(`${backendUrl}/api/chat`, payload);
       const { stories: newStories, imageUrl: newImage } = response.data;
 
       setStories(newStories || []);
