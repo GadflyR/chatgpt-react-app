@@ -355,17 +355,30 @@ function StoryPage() {
         }
       }
 
-      // ============= NEW: DALL·E IMAGE GENERATION (if checkbox is checked) =============
+      // ============= DALL·E IMAGE GENERATION (if checkbox is checked) =============
       let storyImageUrl = null;
       if (generateImage) {
         try {
-          // You could feed the entire story or a short summary to DALL·E.
-          // Keep it relatively short if possible (or do a summarizing step).
-          // For example, here we feed all days:
-          const combinedText = generatedStories.map(
-            (s) => `Day ${s.day}: ${s.content}`
-          ).join('\n');
-          const imagePrompt = `Create a compelling illustration for this story:\n${combinedText}`;
+          // 1) Combine the entire story's content
+          const combinedText = generatedStories
+            .map((s) => `Day ${s.day}: ${s.content}`)
+            .join('\n');
+
+          // 2) If it's > 1000 chars, summarize via GPT to keep it short
+          let dallEPrompt = combinedText;
+          if (dallEPrompt.length > 1000) {
+            const summaryPrompt = `
+              Summarize the following text in 200 characters or fewer for an image prompt:
+              ${dallEPrompt}
+            `;
+            const summaryRes = await axios.post(`${backendUrl}/api/chat`, {
+              prompt: summaryPrompt,
+            });
+            dallEPrompt = summaryRes.data.choices[0].message.content.trim();
+          }
+
+          // 3) Use the final short prompt for DALL·E
+          const imagePrompt = `Create an illustration for this story: ${dallEPrompt}`;
 
           const imgRes = await axios.post(`${backendUrl}/api/generateImage`, {
             prompt: imagePrompt,
@@ -373,7 +386,6 @@ function StoryPage() {
           storyImageUrl = imgRes.data.imageUrl;
         } catch (imgErr) {
           console.error('Error generating story image:', imgErr);
-          // We won't fail the entire story if the image fails; just skip it
         }
       }
 
@@ -392,11 +404,11 @@ function StoryPage() {
         'mainStoryline',
       ].forEach((key) => localStorage.removeItem(key));
 
-      // Navigate to /generated-story with the generated text
+      // Navigate to /generated-story with the generated text + optional image
       navigate('/generated-story', {
         state: {
           stories: generatedStories,
-          imageUrl: storyImageUrl, // NEW: pass to next page
+          imageUrl: storyImageUrl,
         },
       });
     } catch (err) {
