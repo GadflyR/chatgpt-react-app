@@ -46,7 +46,7 @@ app.post('/api/generateImage', async (req, res) => {
         model: 'dall-e-3',
         prompt, // e.g., "An epic fantasy illustration of a brave knight in a medieval city"
         n: 1,
-        size: '512x512',
+        size: '1024x1024',
       },
       {
         headers: {
