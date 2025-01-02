@@ -1,3 +1,4 @@
+// VoiceOptionsPage.jsx
 import React, { useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -57,16 +58,16 @@ function VoiceOptionsPage() {
   const formData = location.state || {};
   // e.g. formData.storyLanguage, formData.numDays, formData.generateImage, etc.
 
-  // ------------------- Local states for TTS & generation -------------------
+  // ------------------- Local states for story generation & TTS logic -------------------
+  const [stories, setStories] = useState([]);    // array of { day, content }
+  const [imageUrl, setImageUrl] = useState(null);
+
+  const [currentDayIndex, setCurrentDayIndex] = useState(0);
+
   const [selectedVoice, setSelectedVoice] = useState('en-US-JennyNeural');
   const [selectedTranslationLanguage, setSelectedTranslationLanguage] = useState('Chinese');
 
-  // The actually generated story data (we store it here so TTS can operate on it)
-  const [stories, setStories] = useState([]);       // e.g., [ { day, content }, ... ]
-  const [imageUrl, setImageUrl] = useState(null);   // optional DALL·E image
-  const [currentDayIndex, setCurrentDayIndex] = useState(0);
-
-  // TTS and steps
+  // TTS: cache, steps, playback sequence
   const [ttsCache, setTtsCache] = useState({});
   const [voiceSteps, setVoiceSteps] = useState([]);
   const [audioSequence, setAudioSequence] = useState([]);
@@ -75,8 +76,8 @@ function VoiceOptionsPage() {
   const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
 
   // Loading states
-  const [generateLoading, setGenerateLoading] = useState(false);  // For the "Generate" call
-  const [loading, setLoading] = useState(false);         // For read-aloud
+  const [generateLoading, setGenerateLoading] = useState(false); // For the story generation
+  const [loading, setLoading] = useState(false);       // For read-aloud TTS
   const [shadowLoading, setShadowLoading] = useState(false);
   const [translateLoading, setTranslateLoading] = useState(false);
 
@@ -87,23 +88,23 @@ function VoiceOptionsPage() {
   // For translation-language dropdown
   const [translateAnchorEl, setTranslateAnchorEl] = useState(null);
 
-  // Audio ref & pause management
+  // Audio/pause ref
   const audioRef = useRef(null);
   const pauseTimeoutIdRef = useRef(null);
   const wasInPauseRef = useRef(false);
   const currentPauseDurationRef = useRef(0);
 
-  // Backend URL
+  // Your backend URL
   const backendUrl =
     process.env.REACT_APP_BACKEND_URL ||
-    'https://your-backend.azurewebsites.net';
+    'https://your-backend-url.azurewebsites.net';
 
-  // ------------------- HELPER: Split text into sentences for shadow reading -------------------
+  // ------------------- Helper: Split text into sentences -------------------
   const getSentences = (text) => {
     return text.match(/[^\.!\?]+[\.!\?]+/g) || [];
   };
 
-  // ------------------- 1) Generate the story on "Generate" click -------------------
+  // ------------------- 1) Generate the story when user clicks "Generate" -------------------
   const handleGenerateStory = async () => {
     setGenerateLoading(true);
     setError('');
@@ -111,17 +112,15 @@ function VoiceOptionsPage() {
     setImageUrl(null);
 
     try {
-      // Construct your request payload from formData + any TTS preferences if relevant
+      // Construct your request payload
       const payload = {
         storyLanguage: formData.storyLanguage,
         numDays: formData.numDays,
         generateImage: formData.generateImage,
-        // plus other fields: formData.title, formData.storyType, etc.
-        // voice: selectedVoice, // if needed for generation logic
+        // ... other fields from formData
       };
 
-      // Example call to a custom endpoint that returns { stories, imageUrl }
-      // Adapt this to your actual backend route
+      // Example call to your backend that returns { stories: [...], imageUrl }
       const response = await axios.post(`${backendUrl}/api/generateStory`, payload);
       const { stories: newStories, imageUrl: newImage } = response.data;
 
@@ -137,7 +136,7 @@ function VoiceOptionsPage() {
     }
   };
 
-  // ------------------- Once we have a story, TTS logic can be used -------------------
+  // ------------------- 2) TTS Playback Helpers -------------------
   const stopPlayback = () => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -161,62 +160,62 @@ function VoiceOptionsPage() {
   };
 
   const handlePreviousDay = () => {
-    if (stories.length === 0) return;
+    if (!stories.length) return;
     setCurrentDayIndex((prev) => Math.max(0, prev - 1));
     resetAudioState();
   };
 
   const handleNextDay = () => {
-    if (stories.length === 0) return;
+    if (!stories.length) return;
     setCurrentDayIndex((prev) => Math.min(stories.length - 1, prev + 1));
     resetAudioState();
   };
 
-  const handleJumpToDay = (dayIndex) => {
-    setCurrentDayIndex(dayIndex);
+  const handleJumpToDay = (index) => {
+    setCurrentDayIndex(index);
     resetAudioState();
   };
 
-  // Unique key for TTS caching
-  const buildCacheKey = (action, day, language) =>
-    language ? `${action}:${day}:${language}` : `${action}:${day}`;
+  // Helper: cache keys for TTS
+  const buildCacheKey = (action, day, language) => {
+    return language ? `${action}:${day}:${language}` : `${action}:${day}`;
+  };
 
   const generateTtsSequence = async (text, voice, isShadow = false) => {
     if (isShadow) {
-      // Break text into sentences, generate each + pause
+      // Shadow reading: break into sentences
       const sentences = getSentences(text);
       const sequence = [];
-
       for (let sentence of sentences) {
         const wordsCount = sentence.trim().split(/\s+/).length;
-        const pauseDuration = wordsCount * 200; // adjust as you like
+        const pauseDuration = wordsCount * 200; // tune as needed
 
-        const response = await axios.post(
+        const res = await axios.post(
           `${backendUrl}/api/tts`,
           { text: sentence, voice },
           { responseType: 'blob' }
         );
-        if (!response.data) throw new Error('No audio data returned.');
-        const audioUrl = URL.createObjectURL(response.data);
+        if (!res.data) throw new Error('No audio data returned.');
+        const audioUrl = URL.createObjectURL(res.data);
         sequence.push({ type: 'audio', url: audioUrl, pauseDuration });
       }
       return sequence;
     } else {
-      // Single TTS call
-      const response = await axios.post(
+      // Single TTS
+      const res = await axios.post(
         `${backendUrl}/api/tts`,
         { text, voice },
         { responseType: 'blob' }
       );
-      if (!response.data) throw new Error('No audio data returned.');
-      const audioUrl = URL.createObjectURL(response.data);
+      if (!res.data) throw new Error('No audio data returned.');
+      const audioUrl = URL.createObjectURL(res.data);
       return [{ type: 'audio', url: audioUrl, pauseDuration: 0 }];
     }
   };
 
-  // ------------------- READ ALOUD -------------------
+  // ------------------- 3) TTS Action Handlers: Read, Translate, Shadow -------------------
   const handleReadAloud = async () => {
-    if (stories.length === 0) return;
+    if (!stories.length) return;
     const dayItem = stories[currentDayIndex];
     if (!dayItem) return;
 
@@ -224,7 +223,6 @@ function VoiceOptionsPage() {
     setError('');
 
     const cacheKey = buildCacheKey('READ_ALOUD', dayItem.day);
-
     const existing = ttsCache[cacheKey];
     if (existing && (existing.status === 'pending' || existing.status === 'done')) {
       addVoiceStep(`Read Aloud (Day ${dayItem.day})`, cacheKey);
@@ -257,10 +255,9 @@ function VoiceOptionsPage() {
     }
   };
 
-  // ------------------- TRANSLATION -------------------
   const handleTranslate = async () => {
-    if (stories.length === 0) return;
-    const { content } = stories[currentDayIndex] || {};
+    if (!stories.length) return;
+    const { content } = stories[currentDayIndex];
     if (!content) return;
 
     setTranslateLoading(true);
@@ -269,55 +266,36 @@ function VoiceOptionsPage() {
 
     try {
       const sentences = getSentences(content);
-      const translatedSentences = [];
-
+      const translations = [];
       for (let sentence of sentences) {
-        const translationPrompt = `
-Translate the following sentence to ${selectedTranslationLanguage}:
-"${sentence}"
-Provide only the translated sentence, no extra text.
-`;
-        const translationRes = await axios.post(`${backendUrl}/api/chat`, {
-          prompt: translationPrompt,
-        });
-        translatedSentences.push(
-          translationRes.data.choices[0].message.content.trim()
-        );
+        const prompt = `Translate the following sentence to ${selectedTranslationLanguage}:\n"${sentence}"`;
+        const res = await axios.post(`${backendUrl}/api/chat`, { prompt });
+        translations.push(res.data.choices[0].message.content.trim());
       }
-      const joinedTranslation = translatedSentences.join(' ');
-      setTranslatedText(joinedTranslation);
+      setTranslatedText(translations.join(' '));
     } catch (err) {
-      console.error('Error translating:', err);
+      console.error(err);
       setError('Error translating the text.');
     } finally {
       setTranslateLoading(false);
     }
   };
 
-  // ------------------- GENERATE TRANSLATED VOICE -------------------
   const handleGenerateTranslatedVoice = async () => {
-    if (stories.length === 0 || !translatedText) return;
+    if (!stories.length) return;
     const dayItem = stories[currentDayIndex];
-    if (!dayItem) return;
+    if (!dayItem || !translatedText) return;
 
     setTranslateLoading(true);
     setError('');
 
     const autoVoice =
       TRANSLATION_VOICE_MAP[selectedTranslationLanguage] || 'zh-CN-XiaoxiaoNeural';
-
-    const cacheKey = buildCacheKey(
-      'TRANSLATED',
-      dayItem.day,
-      selectedTranslationLanguage
-    );
+    const cacheKey = buildCacheKey('TRANSLATED', dayItem.day, selectedTranslationLanguage);
 
     const existing = ttsCache[cacheKey];
     if (existing && (existing.status === 'pending' || existing.status === 'done')) {
-      addVoiceStep(
-        `Translated Voice (Day ${dayItem.day}, ${selectedTranslationLanguage})`,
-        cacheKey
-      );
+      addVoiceStep(`Translated Voice (Day ${dayItem.day}, ${selectedTranslationLanguage})`, cacheKey);
       setTranslateLoading(false);
       return;
     }
@@ -340,7 +318,7 @@ Provide only the translated sentence, no extra text.
       }));
     } catch (err) {
       console.error(err);
-      setError('Error generating translated voice.');
+      setError('Error generating translated voice audio.');
       setTtsCache((prev) => ({
         ...prev,
         [cacheKey]: { status: 'error', sequence: null },
@@ -350,9 +328,8 @@ Provide only the translated sentence, no extra text.
     }
   };
 
-  // ------------------- SHADOW READING -------------------
   const handleShadowReading = async () => {
-    if (stories.length === 0) return;
+    if (!stories.length) return;
     const dayItem = stories[currentDayIndex];
     if (!dayItem) return;
 
@@ -360,7 +337,6 @@ Provide only the translated sentence, no extra text.
     setError('');
 
     const cacheKey = buildCacheKey('SHADOW', dayItem.day);
-
     const existing = ttsCache[cacheKey];
     if (existing && (existing.status === 'pending' || existing.status === 'done')) {
       addVoiceStep(`Shadow Reading (Day ${dayItem.day})`, cacheKey);
@@ -382,7 +358,7 @@ Provide only the translated sentence, no extra text.
       }));
     } catch (err) {
       console.error(err);
-      setError('Error generating shadow reading.');
+      setError('Error generating shadow reading audio.');
       setTtsCache((prev) => ({
         ...prev,
         [cacheKey]: { status: 'error', sequence: null },
@@ -392,31 +368,28 @@ Provide only the translated sentence, no extra text.
     }
   };
 
-  // ------------------- STEPS & PLAYBACK -------------------
+  // ------------------- 4) Steps array & playback controls -------------------
   const addVoiceStep = (label, cacheKey) => {
-    const newStep = {
-      id: Date.now(),
-      label,
-      cacheKey,
-    };
-    setVoiceSteps((prev) => [...prev, newStep]);
+    setVoiceSteps((prev) => [
+      ...prev,
+      { id: Date.now(), label, cacheKey },
+    ]);
   };
 
   const handleDeleteStep = (stepId) => {
-    setVoiceSteps((prev) => prev.filter((s) => s.id !== stepId));
+    setVoiceSteps((prev) => prev.filter((step) => step.id !== stepId));
   };
 
   const handlePlayAll = () => {
-    stopPlayback(); // reset first
-
-    // Combine all steps with TTS ready
+    stopPlayback();
+    // Gather all steps that are "done"
     const doneSteps = voiceSteps.filter((step) => {
       const entry = ttsCache[step.cacheKey];
       return entry && entry.status === 'done';
     });
-    const combined = doneSteps.flatMap((step) => ttsCache[step.cacheKey].sequence);
-    if (combined.length === 0) return;
+    if (!doneSteps.length) return;
 
+    const combined = doneSteps.flatMap((step) => ttsCache[step.cacheKey].sequence);
     setAudioSequence(combined);
     setIsPlaying(true);
     setIsPaused(false);
@@ -438,7 +411,7 @@ Provide only the translated sentence, no extra text.
       audioRef.current = audio;
       audio.play().catch((err) => {
         console.error('Error playing audio:', err);
-        setError('Error playing audio.');
+        setError('Audio playback error.');
         setIsPlaying(false);
       });
       audio.onended = () => {
@@ -496,10 +469,11 @@ Provide only the translated sentence, no extra text.
       // Resume
       setIsPaused(false);
       if (audioRef.current) {
-        audioRef.current.play().catch((err) =>
-          console.error('Error resuming audio:', err)
-        );
+        audioRef.current
+          .play()
+          .catch((err) => console.error('Error resuming audio:', err));
       } else {
+        // If we paused between segments:
         if (wasInPauseRef.current && currentPauseDurationRef.current > 0) {
           pauseTimeoutIdRef.current = setTimeout(() => {
             pauseTimeoutIdRef.current = null;
@@ -518,28 +492,29 @@ Provide only the translated sentence, no extra text.
     }
   };
 
-  // Are any steps "done"?
+  // Check if we have any TTS steps that are ready
   const hasReadyAudio = voiceSteps.some((step) => {
     const entry = ttsCache[step.cacheKey];
     return entry && entry.status === 'done';
   });
 
-  // ------------------- Navigate to final "GeneratedStoryPage" (no TTS) -------------------
+  // ------------------- 5) Navigate to GeneratedStoryPage with TTS data  -------------------
   const handleViewFinalStory = () => {
-    if (!stories || stories.length === 0) {
+    if (!stories.length) {
       setError('No story generated yet.');
       return;
     }
-    // Just pass the story data to the final page
+    // Pass along stories, imageUrl, AND the TTS data
     navigate('/generated-story', {
       state: {
         stories,
         imageUrl,
+        voiceSteps,
+        ttsCache,
       },
     });
   };
 
-  // Current day's story text (if any)
   const currentStory = stories[currentDayIndex] || {};
 
   return (
@@ -549,12 +524,12 @@ Provide only the translated sentence, no extra text.
           Voice / TTS Options
         </Typography>
         <Typography variant="body1">
-          Configure voice settings, generate the story, and optionally test
-          text-to-speech or translations before viewing the final story.
+          Configure voice settings, generate the story, and test TTS before
+          viewing the final version.
         </Typography>
       </Box>
 
-      {/* ========== 1) Generate Story Button ========== */}
+      {/* 1) Generate Story Button */}
       <Box mb={4}>
         <Button
           variant="contained"
@@ -578,19 +553,18 @@ Provide only the translated sentence, no extra text.
         </Button>
       </Box>
 
-      {/* Show error if story generation fails */}
+      {/* Error on generation */}
       {error && (
         <Box mt={2} p={2} bgcolor="#ffebee" borderRadius={2}>
           <Typography color="error">{error}</Typography>
         </Box>
       )}
 
-      {/* ========== 2) If we have a story, show TTS controls ========== */}
+      {/* 2) Show TTS controls once story is generated */}
       {stories.length > 0 && (
         <Grid container spacing={4}>
-          {/* LEFT: Current story text & navigation */}
+          {/* LEFT: story display & day nav */}
           <Grid item xs={12} md={8}>
-            {/* Optional DALL·E image if returned */}
             {imageUrl && (
               <Box mb={2} textAlign="center">
                 <img
@@ -605,7 +579,7 @@ Provide only the translated sentence, no extra text.
               Story Preview (Day {currentStory.day})
             </Typography>
 
-            {/* Jump to Day */}
+            {/* Day navigation */}
             <Box mb={2} display="flex" alignItems="center">
               <Typography variant="body1" sx={{ mr: 1 }}>
                 Jump to Day:
@@ -630,15 +604,15 @@ Provide only the translated sentence, no extra text.
             <Box mb={2} display="flex" justifyContent="space-between">
               <Button
                 variant="outlined"
-                disabled={currentDayIndex === 0}
                 onClick={handlePreviousDay}
+                disabled={currentDayIndex === 0}
               >
                 ← Previous Day
               </Button>
               <Button
                 variant="outlined"
-                disabled={currentDayIndex === stories.length - 1}
                 onClick={handleNextDay}
+                disabled={currentDayIndex === stories.length - 1}
               >
                 Next Day →
               </Button>
@@ -651,7 +625,7 @@ Provide only the translated sentence, no extra text.
               </Typography>
             </Box>
 
-            {/* If we have a translation, show it */}
+            {/* If translated text is present */}
             {translatedText && (
               <Box mt={2} p={2} bgcolor="#e8f5e9" borderRadius={2}>
                 <Typography variant="h6">
@@ -664,13 +638,13 @@ Provide only the translated sentence, no extra text.
             )}
           </Grid>
 
-          {/* RIGHT: Voice selection & TTS controls */}
+          {/* RIGHT: TTS action buttons & Steps */}
           <Grid item xs={12} md={4}>
             <Typography variant="h5" gutterBottom>
               TTS Actions
             </Typography>
 
-            {/* Select Voice */}
+            {/* Voice selection */}
             <TextField
               select
               fullWidth
@@ -687,9 +661,8 @@ Provide only the translated sentence, no extra text.
               ))}
             </TextField>
 
-            {/* Buttons: Read, Translate, Shadow */}
+            {/* Buttons: read, translate, shadow */}
             <Box display="flex" flexDirection="column" alignItems="flex-start" mt={2}>
-              {/* Read Aloud */}
               <Button
                 variant="contained"
                 color="primary"
@@ -701,7 +674,6 @@ Provide only the translated sentence, no extra text.
                 {loading ? 'Generating Voice...' : 'Read Aloud (This Day)'}
               </Button>
 
-              {/* Translate button group */}
               <ButtonGroup
                 variant="contained"
                 color="secondary"
@@ -714,7 +686,7 @@ Provide only the translated sentence, no extra text.
                     ? 'Translating...'
                     : `Translate to ${selectedTranslationLanguage} (This Day)`}
                 </Button>
-                <Button size="small" onClick={(e) => setTranslateAnchorEl(e.currentTarget)}>
+                <Button onClick={(e) => setTranslateAnchorEl(e.currentTarget)}>
                   ▼
                 </Button>
               </ButtonGroup>
@@ -742,11 +714,11 @@ Provide only the translated sentence, no extra text.
                 >
                   {translateLoading
                     ? 'Generating Translated Voice...'
-                    : 'Generate Voice for Translated Text (This Day)'}
+                    : 'Generate Voice for Translated Text'
+                  }
                 </Button>
               )}
 
-              {/* Shadow Reading */}
               <Button
                 variant="contained"
                 color="warning"
@@ -757,7 +729,7 @@ Provide only the translated sentence, no extra text.
                 {shadowLoading ? 'Generating Shadow...' : 'Shadow Reading (This Day)'}
               </Button>
 
-              {/* Play/Pause/Stop for steps */}
+              {/* Playback: play/pause/stop */}
               <Box display="flex" alignItems="center" mt={2} width="100%">
                 <Button
                   variant="contained"
@@ -827,14 +799,14 @@ Provide only the translated sentence, no extra text.
               </Box>
             )}
 
-            {/* Show TTS loading spinners */}
+            {/* Show TTS spinners */}
             {(loading || translateLoading || shadowLoading) && (
               <Box mt={2}>
                 <CircularProgress />
               </Box>
             )}
 
-            {/* Show any TTS errors */}
+            {/* Show TTS errors */}
             {error && (
               <Box mt={2} p={2} bgcolor="#ffebee" borderRadius={2}>
                 <Typography color="error" variant="body1">
