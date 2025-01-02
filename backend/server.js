@@ -43,9 +43,10 @@ app.post('/api/generateImage', async (req, res) => {
     const response = await axios.post(
       'https://api.openai.com/v1/images/generations',
       {
+        model: 'dall-e-3',
         prompt, // e.g., "An epic fantasy illustration of a brave knight in a medieval city"
         n: 1,
-        size: '512x512',
+        size: '1024x1024',
       },
       {
         headers: {

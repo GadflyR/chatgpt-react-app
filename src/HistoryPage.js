@@ -131,6 +131,31 @@ function HistoryPage() {
     return new Date(ts).toLocaleString();
   };
 
+  /**
+   * ============== NEW: Delete story (all docs) by storyId ============= 
+   */
+  const handleDeleteStory = async (storyIdToDelete) => {
+    if (!currentUser) return;
+
+    try {
+      // 1) Query all docs with that storyId
+      const storyRef = collection(db, 'users', currentUser.uid, 'generatedStories');
+      const qStories = query(storyRef, where('storyId', '==', storyIdToDelete));
+      const snapshots = await getDocs(qStories);
+
+      // 2) Delete each doc
+      for (const docSnap of snapshots.docs) {
+        await deleteDoc(docSnap.ref);
+      }
+
+      // 3) Remove from local state
+      setMergedStories((prev) => prev.filter((s) => s.storyId !== storyIdToDelete));
+    } catch (err) {
+      console.error('Error deleting story:', err);
+      setError('Failed to delete the story. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <Container maxWidth="md">
@@ -172,6 +197,10 @@ function HistoryPage() {
                 variant="outlined"
                 style={{ marginBottom: '16px' }}
               >
+                {/* 
+                  CardActionArea is clickable to view the story.
+                  We'll add CardActions below for the Delete button.
+                */}
                 <CardActionArea
                   onClick={() =>
                     navigate('/generated-story', {
@@ -200,6 +229,20 @@ function HistoryPage() {
                     )}
                   </CardContent>
                 </CardActionArea>
+
+                {/* New: CardActions with Delete button */}
+                <CardActions>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent triggering the CardActionArea
+                      handleDeleteStory(story.storyId);
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </CardActions>
               </Card>
             );
           })
