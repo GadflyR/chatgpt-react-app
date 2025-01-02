@@ -93,11 +93,9 @@ function VoiceOptionsPage() {
   const pauseTimeoutIdRef = useRef(null);
   const wasInPauseRef = useRef(false);
   const currentPauseDurationRef = useRef(0);
-
-  // Your backend URL
   const backendUrl =
     process.env.REACT_APP_BACKEND_URL ||
-    'https://your-backend-url.azurewebsites.net';
+  'https://ibotstorybackend-f6e0c4f9h9bkbef8.eastus2-01.azurewebsites.net';
 
   // ------------------- Helper: Split text into sentences -------------------
   const getSentences = (text) => {
@@ -121,7 +119,7 @@ function VoiceOptionsPage() {
       };
 
       // Example call to your backend that returns { stories: [...], imageUrl }
-      const response = await axios.post(`${backendUrl}/api/chat`, payload);
+      const response = await axios.post(`${backendUrl}/api/generateStory`, payload);
       const { stories: newStories, imageUrl: newImage } = response.data;
 
       setStories(newStories || []);
