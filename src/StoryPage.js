@@ -425,12 +425,25 @@ function StoryPage() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ marginTop: '100px' }}>
-      <Box mt={4}>
+    <Container
+      maxWidth="lg"
+      sx={{
+        marginTop: '100px',
+        display: 'flex',
+        justifyContent: 'center',
+      }}
+    >
+      <Box
+        mt={4}
+        sx={{
+          width: { xs: '100%', sm: '90%', md: '80%' }, // Adjust the width for different screen sizes
+          marginLeft: { xs: '10px', sm: '50px', md: '100px' }, // Leave more blank space on the left
+        }}
+      >
         <div className="Subtitle">Generate a Story Series</div>
 
         <Box component="form" onSubmit={handleGenerateStory} mb={2}>
-          {/* BASIC OPTIONS (Dark Grey) */}
+          {/* BASIC OPTIONS */}
           <Box
             p={3}
             mb={4}
@@ -440,7 +453,11 @@ function StoryPage() {
             <Typography variant="h6" gutterBottom>
               Basic Options
             </Typography>
-            <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={3}>
+            <Box
+              display="flex"
+              flexDirection={{ xs: 'column', md: 'row' }}
+              gap={3}
+            >
               <TextField
                 fullWidth
                 select
@@ -471,7 +488,6 @@ function StoryPage() {
               />
             </Box>
           </Box>
-
           {/* OPTIONAL FIELDS */}
           <Typography variant="h6" gutterBottom>
             Optional:

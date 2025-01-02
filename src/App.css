@@ -133,8 +133,29 @@ button:hover {
   position: absolute;
 }
 
-/* Style for the history button */
-.history-button:hover {
-  background-color: #1565c0; /* Darker shade of blue */
-  transform: scale(1.05);
+#history {
+  /* Same style as #about */
+  width: 10vw;
+  height: 10vw;
+  bottom: 40vh;
+  text-align: center;
+  font-size: 25px;
+  font-family: 'TextFont', sans-serif;
+  transform: rotate(-90deg);
+  background: transparent;
+  color: #fff;
+  position: fixed;
+  left: 0; /* same left alignment as #about, or tweak as needed */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  z-index: 4;
+  transition: 0.4s ease-in-out;
+  border-radius: 0 0 100px 100px;
+  text-decoration: none;
+}
+
+#history:hover {
+  background: rgba(170, 50, 255, 0.9);
+  cursor: pointer;
 }
