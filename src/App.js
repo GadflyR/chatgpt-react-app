@@ -35,38 +35,11 @@ function App() {
         </NavBar>
         <Routes>
           <Route path="/" element={<StartPage />} />
-          <Route
-            path="/chat"
-            element={
-              <PrivateRoute>
-                <ChatPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/story"
-            element={
-              <PrivateRoute>
-                <StoryPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/generated-story"
-            element={
-              <PrivateRoute>
-                <GeneratedStoryPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/history"
-            element={
-              <PrivateRoute>
-                <HistoryPage />
-              </PrivateRoute>
-            }
-          />
+          <Route path="/chat" element={<PrivateRoute><ChatPage /></PrivateRoute>}/>
+          <Route path="/story" element={<PrivateRoute><StoryPage /></PrivateRoute>}/>
+          <Route path="/voice-options" element={<PrivateRoute><VoiceOptionsPage /></PrivateRoute>} />
+          <Route path="/generated-story" element={<PrivateRoute><GeneratedStoryPage /></PrivateRoute>}/>
+          <Route path="/history" element={<PrivateRoute><HistoryPage /></PrivateRoute>}/>
           <Route path="/login" element={<Login />} />
         </Routes>
       </Router>
